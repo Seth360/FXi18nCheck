@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>多语质检助手</title>
+    <link rel="stylesheet" href="sidepanel.css">
+  </head>
+  <body class="sp-page">
+    <div id="toast" class="sp-toast hidden"></div>
+
+    <main id="homeView" class="sp-screen">
+      <section class="sp-shell">
+        <header class="sp-header">
+          <div class="sp-title-wrap">
+            <div class="sp-title-row">
+              <h1 class="sp-title">FX多语质检助手</h1>
+              <a class="sp-title-link" href="https://fuxc.team/" target="_blank" rel="noreferrer">FXUC.TEAM</a>
+            </div>
+            <p class="sp-intro">一键检查多语设计质量，生成分析报告</p>
+          </div>
+        </header>
+
+        <div class="sp-actions">
+          <button id="analyzeBtn" class="sp-button sp-button-primary">检查当前页面</button>
+          <button id="openSettingsBtn" class="sp-button sp-button-secondary">配置</button>
+        </div>
+
+        <section id="progressPanel" class="sp-progress hidden">
+          <div class="sp-progress-bar">
+            <div id="progressFill" class="sp-progress-fill"></div>
+          </div>
+          <p id="progressText" class="sp-progress-text">等待执行</p>
+          <p id="progressMeta" class="sp-progress-meta"></p>
+        </section>
+
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">检查记录</h2>
+            <button id="clearHistoryBtn" class="sp-link-button">清除记录</button>
+          </div>
+          <div id="recordsList" class="sp-record-list"></div>
+          <div id="emptyState" class="sp-empty hidden">暂无检查记录</div>
+        </section>
+      </section>
+    </main>
+
+    <main id="detailView" class="sp-screen hidden">
+      <section class="sp-shell sp-detail-shell">
+        <button id="backBtn" class="sp-back">返回</button>
+        <div id="detailContent"></div>
+      </section>
+      <footer class="sp-footer detail-footer">
+        <div class="detail-footer-actions">
+          <button id="createTapdStoryBtn" class="sp-button sp-button-secondary">创建需求</button>
+          <button id="exportBtn" class="sp-button sp-button-primary">导出到备忘录</button>
+          <button id="detailBackBtn" class="sp-button sp-button-secondary">返回</button>
+        </div>
+      </footer>
+    </main>
+
+    <main id="settingsView" class="sp-screen hidden">
+      <section class="sp-shell sp-detail-shell">
+        <section id="settingsMainPage" class="settings-page">
+          <button id="settingsBackBtn" class="sp-back">返回</button>
+          <div class="settings-page-head">
+            <h2 class="settings-page-title">配置</h2>
+            <p class="settings-page-subtitle">填写模型参数和备忘录导出设置</p>
+          </div>
+          <div class="sp-form">
+            <section class="settings-group">
+              <h3 class="settings-group-title">模型配置</h3>
+              <div id="modelConfigList" class="model-config-list"></div>
+              <button id="addModelConfigBtn" class="sp-button sp-button-secondary" type="button" style="margin-top:8px;width:100%">+ 添加模型配置</button>
+            </section>
+
+            <section class="settings-group">
+              <h3 class="settings-group-title">通用设置</h3>
+              <label>模型超时毫秒<input id="modelTimeoutMs" placeholder="60000"></label>
+            </section>
+
+            <section class="settings-group">
+              <h3 class="settings-group-title">本地笔记配置</h3>
+              <label>Apple Notes Bridge URL<input id="appleNotesBridgeUrl" placeholder="http://127.0.0.1:3894/note"></label>
+              <label>Apple Notes 文件夹<input id="appleNotesFolder" placeholder="多语质检"></label>
+              <label>本地归档目录<input id="appleNotesArchiveDir" placeholder="~/Documents/Multilingual-QA-Reports"></label>
+              <label>备忘录桥接超时毫秒<input id="bridgeTimeoutMs" placeholder="20000"></label>
+            </section>
+
+            <section class="settings-group">
+              <h3 class="settings-group-title">TAPD 配置</h3>
+              <label>TAPD API账号<input id="tapdApiAccount" placeholder="例如：your-account"></label>
+              <label>TAPD 创建人用户名<input id="tapdCreatorUsername" placeholder="填写你的 TAPD 登录用户名"></label>
+              <label>TAPD Token<input id="tapdApiToken" type="password" placeholder="Open API Token / Access Token"></label>
+              <label>TAPD 需求列表链接<input id="tapdStoryListUrl" placeholder="https://www.tapd.cn/tapd_fe/.../story/list?...&categoryId=..."></label>
+            </section>
+
+            <section class="settings-group">
+              <h3 class="settings-group-title">其它</h3>
+              <label class="settings-checkbox">
+                <input id="highlightFindings" type="checkbox">
+                <span>高亮显示问题</span>
+              </label>
+              <label>额外检查规则<textarea id="extraRules" rows="4" placeholder="例如：重点检查按钮命名是否遵循我司术语表"></textarea></label>
+            </section>
+          </div>
+          <p id="saveStatus" class="settings-status">尚未保存</p>
+        </section>
+
+        <section id="modelConfigEditor" class="settings-page hidden">
+          <button id="modelEditorBackBtn" class="sp-back">返回</button>
+          <div class="settings-page-head">
+            <h2 class="settings-page-title" id="modelEditorTitle">添加模型配置</h2>
+            <p class="settings-page-subtitle">配置单独模型参数，保存后返回模型配置列表</p>
+          </div>
+          <div class="sp-form">
+            <section class="settings-group">
+              <input id="editConfigId" type="hidden">
+              <label>配置名称<input id="editConfigName" placeholder="例如：我的 GPT-4o"></label>
+              <label>快速填充预设<select id="editPresetSelect"><option value="">-- 手动填写 --</option></select></label>
+              <label>模型名称
+                <div class="input-with-action">
+                  <input id="editConfigModel" placeholder="gpt-4o / claude-sonnet-4-0 / ...">
+                  <button id="fetchModelsBtn" class="sp-button sp-button-secondary" type="button">Fetch</button>
+                </div>
+              </label>
+              <div id="fetchedModelList" class="fetched-model-list hidden"></div>
+              <label>API Base URL<input id="editConfigBaseUrl" placeholder="https://api.openai.com"></label>
+              <label>API 格式
+                <select id="editConfigApiPath">
+                  <option value="/v1/chat/completions">OpenAI Chat （/v1/chat/completions）</option>
+                  <option value="/v1/responses">OpenAI Responses （/v1/responses）</option>
+                  <option value="/v1/messages">Anthropic Messages （/v1/messages）</option>
+                </select>
+              </label>
+              <label>API Key<input id="editConfigApiKey" type="password" placeholder="sk-..."></label>
+              <label>认证 Header<input id="editConfigAuthHeader" placeholder="Authorization"></label>
+              <label>认证 Scheme<input id="editConfigAuthScheme" placeholder="Bearer"></label>
+            </section>
+          </div>
+        </section>
+      </section>
+      <footer class="sp-footer">
+        <div id="settingsMainFooter" class="sp-footer-actions">
+          <button id="saveSettingsBtn" class="sp-button sp-button-primary">保存配置</button>
+          <button id="settingsFooterBackBtn" class="sp-button sp-button-secondary">返回</button>
+        </div>
+        <div id="modelEditorFooter" class="sp-footer-actions hidden">
+          <button id="saveModelConfigBtn" class="sp-button sp-button-primary" type="button">保存</button>
+          <button id="cancelModelConfigBtn" class="sp-button sp-button-secondary" type="button">取消</button>
+        </div>
+      </footer>
+    </main>
+
+    <script src="model-config.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

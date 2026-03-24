@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>多语质检助手</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="popup-body">
+    <main class="panel">
+      <h1>多语质检助手</h1>
+      <p class="muted">检查当前页面的多语设计质量，并输出到你的记事本。</p>
+      <div class="row">
+        <button id="analyzeBtn" class="primary">检查当前页面</button>
+        <button id="toggleSettingsBtn">配置</button>
+      </div>
+      <p id="status" class="status">等待执行</p>
+      <section id="progressPanel" class="progress-panel hidden">
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <p id="progressText" class="progress-text">等待执行</p>
+        <p id="progressMeta" class="progress-meta"></p>
+      </section>
+      <section id="settingsPanel" class="settings-panel hidden">
+        <h2>快速配置</h2>
+        <section class="form-section">
+          <h2>模型配置</h2>
+          <div id="modelConfigList" class="model-config-list"></div>
+          <button id="addModelConfigBtn" type="button" style="margin-top:8px;width:100%">+ 添加模型配置</button>
+        </section>
+        <section id="modelConfigEditor" class="form-section hidden">
+          <h2 id="modelEditorTitle">添加模型配置</h2>
+          <input id="editConfigId" type="hidden">
+          <label>配置名称<input id="editConfigName" placeholder="例如：我的 GPT-4o"></label>
+          <label>快速填充预设<select id="editPresetSelect"><option value="">-- 手动填写 --</option></select></label>
+          <label>模型名称
+            <div class="input-with-action">
+              <input id="editConfigModel" placeholder="gpt-4o / claude-sonnet-4-0 / ...">
+              <button id="fetchModelsBtn" type="button">Fetch</button>
+            </div>
+          </label>
+          <div id="fetchedModelList" class="fetched-model-list hidden"></div>
+          <label>API Base URL<input id="editConfigBaseUrl" placeholder="https://api.openai.com"></label>
+          <label>API 格式
+            <select id="editConfigApiPath">
+              <option value="/v1/chat/completions">OpenAI Chat （/v1/chat/completions）</option>
+              <option value="/v1/responses">OpenAI Responses （/v1/responses）</option>
+              <option value="/v1/messages">Anthropic Messages （/v1/messages）</option>
+            </select>
+          </label>
+          <label>API Key<input id="editConfigApiKey" type="password" placeholder="sk-..."></label>
+          <label>认证 Header<input id="editConfigAuthHeader" placeholder="Authorization"></label>
+          <label>认证 Scheme<input id="editConfigAuthScheme" placeholder="Bearer"></label>
+          <div class="row" style="margin-top:8px">
+            <button id="saveModelConfigBtn" class="primary" type="button">保存模型</button>
+            <button id="cancelModelConfigBtn" type="button">取消</button>
+          </div>
+        </section>
+        <section class="form-section">
+          <h2>通用设置</h2>
+          <label>模型超时毫秒<input id="modelTimeoutMs" placeholder="60000"></label>
+        </section>
+        <section class="form-section">
+          <h2>本地笔记配置</h2>
+          <label>Apple Notes Bridge URL<input id="appleNotesBridgeUrl" placeholder="http://127.0.0.1:3894/note"></label>
+          <label>Apple Notes 文件夹<input id="appleNotesFolder" placeholder="多语质检"></label>
+          <label>本地归档目录<input id="appleNotesArchiveDir" placeholder="~/Documents/Multilingual-QA-Reports"></label>
+          <label>备忘录桥接超时毫秒<input id="bridgeTimeoutMs" placeholder="20000"></label>
+        </section>
+        <section class="form-section">
+          <h2>其它</h2>
+          <label class="checkbox-row">
+            <input id="highlightFindings" type="checkbox">
+            <span>高亮显示问题</span>
+          </label>
+          <label>发送模式
+            <select id="sinkType">
+              <option value="none">只生成，不自动发送</option>
+              <option value="webhook">Webhook</option>
+              <option value="webdav">WebDAV</option>
+              <option value="appleNotes">Apple Notes 本地桥接</option>
+            </select>
+          </label>
+          <label>Webhook URL<input id="webhookUrl" placeholder="https://example.com/inbox"></label>
+          <label>Webhook Token<input id="webhookToken" type="password" placeholder="可选"></label>
+          <label>WebDAV Base URL<input id="webdavBaseUrl" placeholder="https://dav.example.com/remote.php/dav/files/name"></label>
+          <label>WebDAV Folder<input id="webdavFolder" placeholder="multilingual-check-reports"></label>
+          <label>WebDAV Username<input id="webdavUsername" placeholder="username"></label>
+          <label>WebDAV Password<input id="webdavPassword" type="password" placeholder="password"></label>
+          <label>额外检查规则<textarea id="extraRules" rows="4" placeholder="例如：重点检查按钮命名是否遵循我司术语表"></textarea></label>
+        </section>
+        <div class="row">
+          <button id="saveSettingsBtn" class="primary">保存配置</button>
+          <span id="saveStatus" class="status compact-status">尚未保存</span>
+        </div>
+      </section>
+      <section id="result" class="result hidden">
+        <div class="metric-grid">
+          <div class="metric">
+            <span class="metric-label">评分</span>
+            <strong id="score">-</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">风险</span>
+            <strong id="riskLevel">-</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">问题数</span>
+            <strong id="findingCount">-</strong>
+          </div>
+        </div>
+        <h2>问题摘要</h2>
+        <ul id="findings"></ul>
+        <section id="deliveryPanel" class="delivery-panel hidden">
+          <h2>存储位置</h2>
+          <p><strong>备忘录位置：</strong><span id="noteLocation">-</span></p>
+          <p><strong>本地归档：</strong><span id="storagePath">-</span></p>
+        </section>
+      </section>
+    </main>
+    <script src="model-config.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

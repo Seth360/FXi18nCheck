@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "多语质检助手",
+  "version": "0.4.0",
+  "description": "在浏览器右侧边栏中检查多语设计质量，并管理检查历史与备忘录导出。",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "scripting",
+    "notifications",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "file:///*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "extension/background.js"
+  },
+  "action": {
+    "default_title": "多语质检助手"
+  },
+  "side_panel": {
+    "default_path": "extension/sidepanel.html"
+  },
+  "options_page": "extension/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>",
+        "file:///*"
+      ],
+      "js": [
+        "extension/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
