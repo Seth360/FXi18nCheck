@@ -134,6 +134,8 @@ function handlePresetSelect() {
   if (!editConfigNameEl.value) {
     editConfigNameEl.value = preset.label;
   }
+  editConfigAuthHeaderEl.value = preset.authHeader ?? "Authorization";
+  editConfigAuthSchemeEl.value = preset.authScheme ?? "Bearer";
 }
 
 function renderModelConfigList() {
@@ -165,6 +167,8 @@ function renderModelConfigList() {
 }
 
 function formatApiPath(path) {
+  if (path === "/v1/chat/completions") return "Chat";
+  if (path === "/v1/responses") return "Responses";
   if (path === "/v1/messages") return "Anthropic";
   return path || "";
 }
@@ -172,8 +176,8 @@ function formatApiPath(path) {
 function openModelEditor(configId) {
   modelConfigEditor.classList.remove("hidden");
   editPresetSelectEl.value = "";
-  while (editConfigApiPathEl.options.length > 1) {
-    editConfigApiPathEl.remove(1);
+  while (editConfigApiPathEl.options.length > 3) {
+    editConfigApiPathEl.remove(3);
   }
 
   if (configId) {
@@ -191,17 +195,17 @@ function openModelEditor(configId) {
       customOpt.textContent = `自定义：${config.apiPath}`;
       editConfigApiPathEl.appendChild(customOpt);
     }
-    editConfigApiPathEl.value = config.apiPath || "/v1/messages";
+    editConfigApiPathEl.value = config.apiPath || "/v1/chat/completions";
     editConfigApiKeyEl.value = config.apiKey || "";
     editConfigAuthHeaderEl.value = config.authHeader ?? "Authorization";
     editConfigAuthSchemeEl.value = config.authScheme ?? "Bearer";
   } else {
     modelEditorTitle.textContent = "添加模型配置";
     editConfigIdEl.value = "";
-    editConfigNameEl.value = "FX共享";
-    editConfigModelEl.value = "MiniMax-M2.5";
-    editConfigBaseUrlEl.value = "https://aihub.firstshare.cn";
-    editConfigApiPathEl.value = "/v1/messages";
+    editConfigNameEl.value = "";
+    editConfigModelEl.value = "";
+    editConfigBaseUrlEl.value = "";
+    editConfigApiPathEl.value = "/v1/chat/completions";
     editConfigApiKeyEl.value = "";
     editConfigAuthHeaderEl.value = "Authorization";
     editConfigAuthSchemeEl.value = "Bearer";

@@ -4,11 +4,125 @@
       label: "FX共享",
       value: "MiniMax-M2.5",
       apiBaseUrl: "https://aihub.firstshare.cn",
-      apiPath: "/v1/messages"
+      apiPath: "/v1/messages",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "GPT-4.1",
+      value: "gpt-4.1",
+      apiBaseUrl: "https://api.openai.com",
+      apiPath: "/v1/responses",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "GPT-4o",
+      value: "gpt-4o",
+      apiBaseUrl: "https://api.openai.com",
+      apiPath: "/v1/responses",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "GPT-4o mini",
+      value: "gpt-4o-mini",
+      apiBaseUrl: "https://api.openai.com",
+      apiPath: "/v1/responses",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "o3",
+      value: "o3",
+      apiBaseUrl: "https://api.openai.com",
+      apiPath: "/v1/responses",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "Claude 3.7 Sonnet",
+      value: "claude-3-7-sonnet-latest",
+      apiBaseUrl: "https://api.anthropic.com",
+      apiPath: "/v1/messages",
+      authHeader: "x-api-key",
+      authScheme: ""
+    },
+    {
+      label: "Claude Sonnet 4",
+      value: "claude-sonnet-4-0",
+      apiBaseUrl: "https://api.anthropic.com",
+      apiPath: "/v1/messages",
+      authHeader: "x-api-key",
+      authScheme: ""
+    },
+    {
+      label: "Gemini 2.5 Pro",
+      value: "gemini-2.5-pro",
+      apiBaseUrl: "https://generativelanguage.googleapis.com",
+      apiPath: "/v1beta/openai/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "Gemini 2.5 Flash",
+      value: "gemini-2.5-flash",
+      apiBaseUrl: "https://generativelanguage.googleapis.com",
+      apiPath: "/v1beta/openai/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "DeepSeek V3",
+      value: "deepseek-chat",
+      apiBaseUrl: "https://api.deepseek.com",
+      apiPath: "/v1/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "DeepSeek R1",
+      value: "deepseek-reasoner",
+      apiBaseUrl: "https://api.deepseek.com",
+      apiPath: "/v1/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "Qwen Max",
+      value: "qwen-max",
+      apiBaseUrl: "https://dashscope.aliyuncs.com",
+      apiPath: "/compatible-mode/v1/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "Qwen Plus",
+      value: "qwen-plus",
+      apiBaseUrl: "https://dashscope.aliyuncs.com",
+      apiPath: "/compatible-mode/v1/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "Doubao 1.5 Pro",
+      value: "doubao-1-5-pro-32k-250115",
+      apiBaseUrl: "https://ark.cn-beijing.volces.com",
+      apiPath: "/api/v3/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
     }
   ];
 
   const API_PATH_OPTIONS = [
+    {
+      label: "OpenAI Chat （/v1/chat/completions）",
+      value: "/v1/chat/completions"
+    },
+    {
+      label: "OpenAI Responses （/v1/responses）",
+      value: "/v1/responses"
+    },
     {
       label: "Anthropic Messages （/v1/messages）",
       value: "/v1/messages"
