@@ -1,8 +1,8 @@
 const DEFAULT_SETTINGS = {
-  apiBaseUrl: "https://api.openai.com",
-  apiPath: "/v1/responses",
+  apiBaseUrl: "https://aihub.firstshare.cn",
+  apiPath: "/v1/messages",
   apiKey: "",
-  model: "gpt-4.1",
+  model: "MiniMax-M2.5",
   authHeader: "Authorization",
   authScheme: "Bearer",
   appleNotesBridgeUrl: "http://127.0.0.1:3894/note",
@@ -20,11 +20,11 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_MODEL_CONFIG = {
   id: "default",
-  name: "OpenAI 示例",
-  apiBaseUrl: "https://api.openai.com",
-  apiPath: "/v1/responses",
+  name: "FX共享",
+  apiBaseUrl: "https://aihub.firstshare.cn",
+  apiPath: "/v1/messages",
   apiKey: "",
-  model: "gpt-4.1",
+  model: "MiniMax-M2.5",
   authHeader: "Authorization",
   authScheme: "Bearer"
 };

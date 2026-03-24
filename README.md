@@ -1,11 +1,11 @@
-# 多语质检助手
+# Fxiaoke 多语质检助手
 
-一个适合团队内部共享的 Chrome 插件初始版，用来检查网页或本地 HTML 中的多语文案质量，并支持将检查报告导出到 macOS 备忘录与本地 Markdown 归档。
+这是一个适合团队内部共享的 Chrome 插件初始版，用来检查网页或本地 HTML 中的多语文案质量，并支持将检查报告导出到 macOS 备忘录与本地 Markdown 归档。
 
 ## 功能介绍
 
 - 采集当前网页或本地 HTML 的标题、按钮、表头、字段标签、占位符等文本
-- 调用你配置的大模型接口生成结构化多语质检报告
+- 调用 FX共享 模型接口生成结构化多语质检报告
 - 在浏览器右侧边栏查看历史记录、详情、评分和问题列表
 - 支持忽略问题、复制单条问题、回看历史检查结果
 - 支持将报告导出到 Apple Notes，并同时归档为本地 Markdown 文件
@@ -44,36 +44,36 @@ launchd/
 
 ## 配置说明
 
-### 1. 模型配置
+### 1. 默认模型配置
 
-在插件侧边栏或配置页中添加一个模型配置，至少需要填写：
+共享仓库里已经保留了 FX共享 的默认配置，发布版本中只去掉了 `API Key` 的具体值，其他关键参数已预先填好：
+
+- `配置名称`: `FX共享`
+- `Model`: `MiniMax-M2.5`
+- `API Base URL`: `https://aihub.firstshare.cn`
+- `API 格式`: `/v1/messages`
+- `认证 Header`: `Authorization`
+- `认证 Scheme`: `Bearer`
+
+同事拿到插件后，只需要在模型配置里补上自己的 `API Key`，保存后即可使用。
+
+### 2. 模型配置使用方式
+
+在插件侧边栏或配置页中确认以下字段：
 
 - `配置名称`
 - `Model`
 - `API Base URL`
 - `API 格式`
-
-常见配置方式：
-
-- OpenAI Responses
-  - `API Base URL`: `https://api.openai.com`
-  - `API 格式`: `/v1/responses`
-  - `认证 Header`: `Authorization`
-  - `认证 Scheme`: `Bearer`
-- Anthropic Messages
-  - `API Base URL`: `https://api.anthropic.com`
-  - `API 格式`: `/v1/messages`
-- 兼容 OpenAI Chat 的网关
-  - `API 格式`: `/v1/chat/completions`
+- `API Key`
 
 补充说明：
 
-- 如果接口需要鉴权，请填写 `API Key`
-- 如果接口使用自定义鉴权头，可以改 `认证 Header`
-- 如果接口不需要 `Bearer` 前缀，可以清空 `认证 Scheme`
-- 如果你的网关依赖浏览器登录态或其他 Cookie/代理机制，可以清空 `认证 Header`
+- 当前共享版只保留 FX共享 这一套模型预设
+- 如果后续 FX共享 的接口鉴权方式有调整，可同步修改 `认证 Header` 或 `认证 Scheme`
+- 共享到 GitHub 的仓库里不会保存任何真实 API Key
 
-### 2. 导出配置
+### 3. 导出配置
 
 默认提供 Apple Notes 本地桥接导出方式，常用字段如下：
 
@@ -82,7 +82,7 @@ launchd/
 - `本地归档目录`：默认 `~/Documents/Multilingual-QA-Reports`
 - `备忘录桥接超时毫秒`：默认 `20000`
 
-### 3. TAPD 配置
+### 4. TAPD 配置
 
 如果你希望把检查结果直接转成 TAPD 需求，可额外填写：
 
@@ -97,10 +97,11 @@ launchd/
 
 1. 打开要检查的网页，或本地 HTML 文件
 2. 点击插件图标，打开右侧边栏
-3. 点击“检查当前页面”
-4. 等待报告生成后，在首页查看记录卡片
-5. 点击某条记录进入详情页
-6. 根据需要执行：
+3. 确认模型配置中的 FX共享 `API Key` 已填写
+4. 点击“检查当前页面”
+5. 等待报告生成后，在首页查看记录卡片
+6. 点击某条记录进入详情页
+7. 根据需要执行：
    - 忽略单条问题
    - 复制单条问题
    - 导出到备忘录
@@ -145,14 +146,11 @@ zsh scripts/install-apple-notes-bridge-launchagent.sh
 
 ## 共享到 GitHub 前的说明
 
-这个初始版已经去掉了以下高风险内容：
+这个初始版已经处理掉以下不适合直接共享的内容：
 
 - 仓库中的个人绝对路径
 - `launchd` 配置里的本机 Node 路径
 - 安装脚本中的本机仓库路径
-- 默认内网 API 地址和内部专用模型预设
+- 任意真实 API Key 值
 
-仍然建议在发布前再确认两件事：
-
-- 你自己的浏览器扩展本地存储里是否还保留真实 API Key
-- 你准备推送到 GitHub 的仓库是公开仓库还是团队私有仓库
+当前保留的 FX共享 配置仅包含团队可共用的基础参数，不包含个人密钥。

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "多语质检助手",
+  "name": "Fxiaoke 多语质检助手",
   "version": "0.4.0",
   "description": "在浏览器右侧边栏中检查多语设计质量，并管理检查历史与备忘录导出。",
   "permissions": [
@@ -21,7 +21,7 @@
     "service_worker": "extension/background.js"
   },
   "action": {
-    "default_title": "多语质检助手"
+    "default_title": "Fxiaoke 多语质检助手"
   },
   "side_panel": {
     "default_path": "extension/sidepanel.html"

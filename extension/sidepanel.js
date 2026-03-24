@@ -246,8 +246,6 @@ function renderModelConfigList() {
 }
 
 function formatApiPath(path) {
-  if (path === "/v1/chat/completions") return "Chat";
-  if (path === "/v1/responses") return "Responses";
   if (path === "/v1/messages") return "Anthropic";
   return path || "";
 }
@@ -259,8 +257,8 @@ function openModelEditor(configId) {
   fetchedModelListEl.innerHTML = "";
   // Reset custom options in apiPath select
   const apiPathSelect = editConfigApiPathEl;
-  while (apiPathSelect.options.length > 3) {
-    apiPathSelect.remove(3);
+  while (apiPathSelect.options.length > 1) {
+    apiPathSelect.remove(1);
   }
 
   if (configId) {
@@ -278,17 +276,17 @@ function openModelEditor(configId) {
       customOpt.textContent = `自定义：${config.apiPath}`;
       apiPathSelect.appendChild(customOpt);
     }
-    apiPathSelect.value = config.apiPath || "/v1/chat/completions";
+    apiPathSelect.value = config.apiPath || "/v1/messages";
     editConfigApiKeyEl.value = config.apiKey || "";
     editConfigAuthHeaderEl.value = config.authHeader ?? "Authorization";
     editConfigAuthSchemeEl.value = config.authScheme ?? "Bearer";
   } else {
     modelEditorTitle.textContent = "添加模型配置";
     editConfigIdEl.value = "";
-    editConfigNameEl.value = "";
-    editConfigModelEl.value = "";
-    editConfigBaseUrlEl.value = "";
-    apiPathSelect.value = "/v1/chat/completions";
+    editConfigNameEl.value = "FX共享";
+    editConfigModelEl.value = "MiniMax-M2.5";
+    editConfigBaseUrlEl.value = "https://aihub.firstshare.cn";
+    apiPathSelect.value = "/v1/messages";
     editConfigApiKeyEl.value = "";
     editConfigAuthHeaderEl.value = "Authorization";
     editConfigAuthSchemeEl.value = "Bearer";
