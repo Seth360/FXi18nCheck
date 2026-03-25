@@ -39,6 +39,7 @@ extension/
 bridges/
   apple-notes-bridge.js
 scripts/
+  start-apple-notes-bridge.sh
   install-apple-notes-bridge-launchagent.sh
 launchd/
   com.multilingual-check.apple-notes-bridge.plist.example
@@ -148,10 +149,14 @@ launchd/
 
 ### 方式一：手动启动 bridge
 
+不要在任意目录直接运行 `node bridges/apple-notes-bridge.js`，否则终端当前目录如果不是仓库根目录，就会出现 `Cannot find module .../bridges/apple-notes-bridge.js`。
+
+推荐直接运行仓库里提供的启动脚本：
+
 在仓库根目录执行：
 
 ```bash
-node bridges/apple-notes-bridge.js
+zsh scripts/start-apple-notes-bridge.sh
 ```
 
 启动后，插件会把导出的报告发送到本机 `http://127.0.0.1:3894/note`，bridge 会完成两件事：
@@ -182,9 +187,10 @@ zsh scripts/install-apple-notes-bridge-launchagent.sh
 如果导出到备忘录失败，建议按这个顺序排查：
 
 1. 先确认本地 bridge 是否正在运行
-2. 再确认插件中的 `Apple Notes Bridge URL` 是否为 `http://127.0.0.1:3894/note`
-3. 再确认当前 macOS 账号能正常打开和写入 Apple Notes
-4. 查看日志文件确认错误原因
+2. 如果终端报 `Cannot find module .../bridges/apple-notes-bridge.js`，说明启动命令是在错误目录执行的，请改用 `zsh scripts/start-apple-notes-bridge.sh`
+3. 再确认插件中的 `Apple Notes Bridge URL` 是否为 `http://127.0.0.1:3894/note`
+4. 再确认当前 macOS 账号能正常打开和写入 Apple Notes
+5. 查看日志文件确认错误原因
 
 如果你更想手动维护 `plist`，可以参考仓库中的 `launchd/com.multilingual-check.apple-notes-bridge.plist.example`。
 
