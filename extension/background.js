@@ -1139,6 +1139,14 @@ async function fetchRemoteModels(baseUrl, apiKey, authHeader, authScheme) {
   }
 
   const normalizedBase = String(baseUrl).trim().replace(/\/+$/, "");
+  const builtinModels = getBuiltinModelsForBaseUrl(normalizedBase);
+  if (builtinModels.length) {
+    return {
+      ok: true,
+      models: builtinModels
+    };
+  }
+
   const endpoint = `${normalizedBase}/v1/models`;
   const headers = { "Content-Type": "application/json" };
   if (apiKey && authHeader) {
@@ -1182,6 +1190,25 @@ async function fetchRemoteModels(baseUrl, apiKey, authHeader, authScheme) {
       owned_by: m.owned_by || ""
     })).filter((m) => m.id)
   };
+}
+
+function getBuiltinModelsForBaseUrl(baseUrl) {
+  const normalizedBase = String(baseUrl || "").trim().toLowerCase();
+  if (!normalizedBase) {
+    return [];
+  }
+
+  if (/^https:\/\/api\.minimax\.io(?:\/|$)/.test(normalizedBase) || /^https:\/\/api\.minimaxi\.com(?:\/|$)/.test(normalizedBase)) {
+    return [
+      { id: "MiniMax-M2.5", name: "MiniMax-M2.5", owned_by: "MiniMax" },
+      { id: "MiniMax-M2.5-highspeed", name: "MiniMax-M2.5-highspeed", owned_by: "MiniMax" },
+      { id: "MiniMax-M2.1", name: "MiniMax-M2.1", owned_by: "MiniMax" },
+      { id: "MiniMax-M2.1-highspeed", name: "MiniMax-M2.1-highspeed", owned_by: "MiniMax" },
+      { id: "MiniMax-M2", name: "MiniMax-M2", owned_by: "MiniMax" }
+    ];
+  }
+
+  return [];
 }
 
 async function reportProgress(progress) {

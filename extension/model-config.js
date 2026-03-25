@@ -2,6 +2,7 @@
   const MODEL_PRESETS = [
     {
       label: "FX共享",
+      key: "fx-shared",
       value: "MiniMax-M2.5",
       apiBaseUrl: "https://aihub.firstshare.cn",
       apiPath: "/v1/messages",
@@ -9,7 +10,26 @@
       authScheme: "Bearer"
     },
     {
-      label: "GPT-4.1",
+      label: "MiniMax(国内)",
+      key: "minimax-cn",
+      value: "MiniMax-M2.5",
+      apiBaseUrl: "https://api.minimaxi.com",
+      apiPath: "/v1/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "MiniMax(国际)",
+      key: "minimax-global",
+      value: "MiniMax-M2.5",
+      apiBaseUrl: "https://api.minimax.io",
+      apiPath: "/v1/chat/completions",
+      authHeader: "Authorization",
+      authScheme: "Bearer"
+    },
+    {
+      label: "OpenAI",
+      key: "openai",
       value: "gpt-4.1",
       apiBaseUrl: "https://api.openai.com",
       apiPath: "/v1/responses",
@@ -17,39 +37,8 @@
       authScheme: "Bearer"
     },
     {
-      label: "GPT-4o",
-      value: "gpt-4o",
-      apiBaseUrl: "https://api.openai.com",
-      apiPath: "/v1/responses",
-      authHeader: "Authorization",
-      authScheme: "Bearer"
-    },
-    {
-      label: "GPT-4o mini",
-      value: "gpt-4o-mini",
-      apiBaseUrl: "https://api.openai.com",
-      apiPath: "/v1/responses",
-      authHeader: "Authorization",
-      authScheme: "Bearer"
-    },
-    {
-      label: "o3",
-      value: "o3",
-      apiBaseUrl: "https://api.openai.com",
-      apiPath: "/v1/responses",
-      authHeader: "Authorization",
-      authScheme: "Bearer"
-    },
-    {
-      label: "Claude 3.7 Sonnet",
-      value: "claude-3-7-sonnet-latest",
-      apiBaseUrl: "https://api.anthropic.com",
-      apiPath: "/v1/messages",
-      authHeader: "x-api-key",
-      authScheme: ""
-    },
-    {
-      label: "Claude Sonnet 4",
+      label: "Anthropic",
+      key: "anthropic",
       value: "claude-sonnet-4-0",
       apiBaseUrl: "https://api.anthropic.com",
       apiPath: "/v1/messages",
@@ -57,7 +46,8 @@
       authScheme: ""
     },
     {
-      label: "Gemini 2.5 Pro",
+      label: "Gemini",
+      key: "gemini",
       value: "gemini-2.5-pro",
       apiBaseUrl: "https://generativelanguage.googleapis.com",
       apiPath: "/v1beta/openai/chat/completions",
@@ -65,15 +55,8 @@
       authScheme: "Bearer"
     },
     {
-      label: "Gemini 2.5 Flash",
-      value: "gemini-2.5-flash",
-      apiBaseUrl: "https://generativelanguage.googleapis.com",
-      apiPath: "/v1beta/openai/chat/completions",
-      authHeader: "Authorization",
-      authScheme: "Bearer"
-    },
-    {
-      label: "DeepSeek V3",
+      label: "DeepSeek",
+      key: "deepseek",
       value: "deepseek-chat",
       apiBaseUrl: "https://api.deepseek.com",
       apiPath: "/v1/chat/completions",
@@ -81,15 +64,8 @@
       authScheme: "Bearer"
     },
     {
-      label: "DeepSeek R1",
-      value: "deepseek-reasoner",
-      apiBaseUrl: "https://api.deepseek.com",
-      apiPath: "/v1/chat/completions",
-      authHeader: "Authorization",
-      authScheme: "Bearer"
-    },
-    {
-      label: "Qwen Max",
+      label: "Qwen",
+      key: "qwen",
       value: "qwen-max",
       apiBaseUrl: "https://dashscope.aliyuncs.com",
       apiPath: "/compatible-mode/v1/chat/completions",
@@ -97,15 +73,8 @@
       authScheme: "Bearer"
     },
     {
-      label: "Qwen Plus",
-      value: "qwen-plus",
-      apiBaseUrl: "https://dashscope.aliyuncs.com",
-      apiPath: "/compatible-mode/v1/chat/completions",
-      authHeader: "Authorization",
-      authScheme: "Bearer"
-    },
-    {
-      label: "Doubao 1.5 Pro",
+      label: "Doubao",
+      key: "doubao",
       value: "doubao-1-5-pro-32k-250115",
       apiBaseUrl: "https://ark.cn-beijing.volces.com",
       apiPath: "/api/v3/chat/completions",
@@ -129,8 +98,27 @@
     }
   ];
 
-  function findModelPreset(value) {
-    return MODEL_PRESETS.find((item) => item.value === value) || null;
+  function findModelPreset(key) {
+    return MODEL_PRESETS.find((item) => (item.key || item.value) === key) || null;
+  }
+
+  function inferPresetKey(config) {
+    if (!config || typeof config !== "object") {
+      return "";
+    }
+
+    if (config.presetKey && findModelPreset(config.presetKey)) {
+      return config.presetKey;
+    }
+
+    const baseUrl = String(config.apiBaseUrl || "").trim();
+    const apiPath = String(config.apiPath || "").trim();
+    const model = String(config.model || "").trim();
+
+    const preset = MODEL_PRESETS.find((item) => item.apiBaseUrl === baseUrl && item.apiPath === apiPath && item.value === model)
+      || MODEL_PRESETS.find((item) => item.apiBaseUrl === baseUrl && item.apiPath === apiPath);
+
+    return preset?.key || "";
   }
 
   function ensureSelectOptions(select, options, currentValue, customLabelPrefix) {
@@ -197,6 +185,7 @@
     MODEL_PRESETS,
     API_PATH_OPTIONS,
     initializeForm,
-    findModelPreset
+    findModelPreset,
+    inferPresetKey
   };
 })(window);

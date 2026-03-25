@@ -190,10 +190,10 @@ async function loadModelConfigs() {
 
 function initPresetSelect() {
   const presets = window.FXModelConfig?.MODEL_PRESETS || [];
-  editPresetSelectEl.innerHTML = '<option value="">-- 手动填写 --</option>';
+  editPresetSelectEl.innerHTML = '<option value="">-- 请选择 --</option>';
   for (const preset of presets) {
     const opt = document.createElement("option");
-    opt.value = preset.value;
+    opt.value = preset.key || preset.value;
     opt.textContent = preset.label;
     editPresetSelectEl.appendChild(opt);
   }
@@ -221,6 +221,25 @@ function handlePresetSelect() {
   }
   editConfigAuthHeaderEl.value = preset.authHeader ?? "Authorization";
   editConfigAuthSchemeEl.value = preset.authScheme ?? "Bearer";
+}
+
+function validateModelConfigForm(requireModel = true) {
+  const model = editConfigModelEl.value.trim();
+  const baseUrl = editConfigBaseUrlEl.value.trim();
+  const apiKey = editConfigApiKeyEl.value.trim();
+
+  if (!baseUrl) return "请先填写 API Base URL";
+  try {
+    const parsed = new URL(baseUrl);
+    if (!/^https?:$/.test(parsed.protocol)) {
+      return "API Base URL 需以 http:// 或 https:// 开头";
+    }
+  } catch (_error) {
+    return "请填写正确的 API Base URL";
+  }
+  if (!apiKey) return "请先填写 API Key";
+  if (requireModel && !model) return "请先填写模型名称";
+  return "";
 }
 
 function renderModelConfigList() {
@@ -284,6 +303,7 @@ function openModelEditor(configId) {
     editConfigApiKeyEl.value = config.apiKey || "";
     editConfigAuthHeaderEl.value = config.authHeader ?? "Authorization";
     editConfigAuthSchemeEl.value = config.authScheme ?? "Bearer";
+    editPresetSelectEl.value = window.FXModelConfig?.inferPresetKey(config) || "";
   } else {
     modelEditorTitle.textContent = "添加模型配置";
     editConfigIdEl.value = "";
@@ -304,19 +324,19 @@ function closeModelEditor() {
 }
 
 async function handleFetchModels() {
-  const baseUrl = editConfigBaseUrlEl.value.trim();
-  if (!baseUrl) {
-    saveStatusEl.textContent = "请先填写 API Base URL";
+  const validationMessage = validateModelConfigForm(false);
+  if (validationMessage) {
+    saveStatusEl.textContent = validationMessage;
     return;
   }
   fetchModelsBtn.disabled = true;
-  fetchModelsBtn.textContent = "...";
+  fetchModelsBtn.textContent = "获取中";
   fetchedModelListEl.classList.add("hidden");
   fetchedModelListEl.innerHTML = "";
   try {
     const response = await chrome.runtime.sendMessage({
       action: "FETCH_REMOTE_MODELS",
-      baseUrl,
+      baseUrl: editConfigBaseUrlEl.value.trim(),
       apiKey: editConfigApiKeyEl.value.trim(),
       authHeader: editConfigAuthHeaderEl.value.trim(),
       authScheme: editConfigAuthSchemeEl.value.trim()
@@ -345,10 +365,10 @@ async function handleFetchModels() {
       fetchedModelListEl.appendChild(item);
     }
   } catch (error) {
-    saveStatusEl.textContent = error.message || "获取模型列表失败";
+    saveStatusEl.textContent = "获取模型列表失败，请检查 API Base URL、API 格式和 API Key";
   } finally {
     fetchModelsBtn.disabled = false;
-    fetchModelsBtn.textContent = "Fetch";
+    fetchModelsBtn.textContent = "获取";
   }
 }
 
@@ -358,8 +378,14 @@ async function handleSaveModelConfig() {
     saveStatusEl.textContent = "请填写配置名称";
     return;
   }
+  const validationMessage = validateModelConfigForm(true);
+  if (validationMessage) {
+    saveStatusEl.textContent = validationMessage;
+    return;
+  }
   const config = {
     name,
+    presetKey: editPresetSelectEl.value.trim(),
     model: editConfigModelEl.value.trim(),
     apiBaseUrl: editConfigBaseUrlEl.value.trim(),
     apiPath: editConfigApiPathEl.value,

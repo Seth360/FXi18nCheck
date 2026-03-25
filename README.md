@@ -1,11 +1,17 @@
 # Fxiaoke 多语质检助手
 
-这是一个适合团队内部共享的 Chrome 插件初始版，用来检查网页或本地 HTML 中的多语文案质量，并支持将检查报告导出到 macOS 备忘录与本地 Markdown 归档。
+用于检查网页或本地 HTML 的多语文案质量的 Chrome 插件，支持生成结构化质检报告、查看历史记录，并可将报告导出到 macOS 备忘录与本地 Markdown 归档。
+
+## GitHub 简介建议
+
+可直接放到 GitHub 仓库简介中：
+
+`用于网页多语文案质检的 Chrome 插件，支持 FX共享 模型分析、历史记录管理，以及桥接 macOS 备忘录导出报告。`
 
 ## 功能介绍
 
 - 采集当前网页或本地 HTML 的标题、按钮、表头、字段标签、占位符等文本
-- 调用 FX共享 模型接口生成结构化多语质检报告
+- 调用 FX共享 或自定义模型接口生成结构化多语质检报告
 - 在浏览器右侧边栏查看历史记录、详情、评分和问题列表
 - 支持忽略问题、复制单条问题、回看历史检查结果
 - 支持将报告导出到 Apple Notes，并同时归档为本地 Markdown 文件
@@ -18,6 +24,10 @@ extension/
   manifest.json
   background.js
   content.js
+  icon-16.png
+  icon-32.png
+  icon-48.png
+  icon-128.png
   sidepanel.html
   sidepanel.js
   sidepanel.css
@@ -34,7 +44,9 @@ launchd/
   com.multilingual-check.apple-notes-bridge.plist.example
 ```
 
-## 安装插件
+## 安装方法
+
+### 1. 安装插件
 
 1. 打开 Chrome 扩展管理页：`chrome://extensions`
 2. 打开右上角“开发者模式”
@@ -42,63 +54,35 @@ launchd/
 4. 选择当前仓库根目录，或者直接选择 `extension/` 目录
 5. 如果需要检查本地 HTML，请在扩展详情页打开“允许访问文件网址”
 
-## 配置说明
+### 2. 首次配置模型
 
-### 1. 默认模型配置
+插件首次安装后会预置一张 FX共享 模型卡片。
 
-共享仓库里已经预置了一个 FX共享 的默认模型卡片，发布版本中只去掉了 `API Key` 的具体值，其他关键参数已预先填好：
+默认配置如下：
 
 - `配置名称`: `FX共享`
-- `Model`: `MiniMax-M2.5`
+- `模型名称`: `MiniMax-M2.5`
 - `API Base URL`: `https://aihub.firstshare.cn`
 - `API 格式`: `/v1/messages`
 - `认证 Header`: `Authorization`
 - `认证 Scheme`: `Bearer`
 
-同事拿到插件后，只需要在这张默认卡片里补上自己的 `API Key`，保存后即可使用。
+需要你或你的同事自行补充：
 
-### 2. 模型配置使用方式
+- `API Key`
 
-在插件侧边栏或配置页中确认以下字段：
+如果不使用预设厂商，也可以不选择“模型厂商”，直接手动填写：
 
-- `配置名称`
-- `Model`
 - `API Base URL`
 - `API 格式`
 - `API Key`
-
-补充说明：
-
-- 快速填充预设里保留了常用大模型，方便新增其他模型配置
-- 默认预置的模型卡片仍然是 FX共享
-- 如果后续 FX共享 的接口鉴权方式有调整，可同步修改 `认证 Header` 或 `认证 Scheme`
-- 共享到 GitHub 的仓库里不会保存任何真实 API Key
-
-### 3. 导出配置
-
-默认提供 Apple Notes 本地桥接导出方式，常用字段如下：
-
-- `Apple Notes Bridge URL`：默认 `http://127.0.0.1:3894/note`
-- `Apple Notes 文件夹`：默认 `多语质检`
-- `本地归档目录`：默认 `~/Documents/Multilingual-QA-Reports`
-- `备忘录桥接超时毫秒`：默认 `20000`
-
-### 4. TAPD 配置
-
-如果你希望把检查结果直接转成 TAPD 需求，可额外填写：
-
-- `TAPD API账号`
-- `TAPD 创建人用户名`
-- `TAPD Token`
-- `TAPD 需求列表链接`
-
-未配置时不会影响插件的页面检查与备忘录导出。
+- `模型名称`
 
 ## 使用说明
 
 1. 打开要检查的网页，或本地 HTML 文件
 2. 点击插件图标，打开右侧边栏
-3. 确认模型配置中的 FX共享 `API Key` 已填写
+3. 确认模型配置中的 `API Key` 已填写
 4. 点击“检查当前页面”
 5. 等待报告生成后，在首页查看记录卡片
 6. 点击某条记录进入详情页
@@ -108,7 +92,59 @@ launchd/
    - 导出到备忘录
    - 创建 TAPD 需求
 
-## Mac 备忘录接入说明
+## 模型配置说明
+
+### 厂商预设
+
+“模型厂商”下拉中提供常用厂商预设，包括：
+
+- FX共享
+- MiniMax(国内)
+- MiniMax(国际)
+- OpenAI
+- Anthropic
+- Gemini
+- DeepSeek
+- Qwen
+- Doubao
+
+选择厂商后，会自动带出对应的：
+
+- `API Base URL`
+- `API 格式`
+- `认证 Header`
+- `认证 Scheme`
+- 默认 `模型名称`
+
+### 保存时校验
+
+保存模型配置时会校验：
+
+- `配置名称`
+- `API Base URL`
+- `API Key`
+- `模型名称`
+
+如果填写的是自有 API，可以不选“模型厂商”，直接手动填写以上字段。
+
+### 获取模型列表
+
+点击“获取”按钮时，会尝试根据当前配置读取可用模型列表。
+
+会优先校验：
+
+- `API Base URL`
+- `API Key`
+
+如果是 MiniMax 国内/国际地址，插件会直接返回内置的常用 MiniMax 模型选项，避免请求不存在的 `/v1/models` 接口。
+
+## Mac 备忘录桥接说明
+
+### 适用环境
+
+- macOS
+- 已安装 Node.js
+- 当前账号允许使用 Apple Notes
 
 ### 方式一：手动启动 bridge
 
@@ -143,11 +179,29 @@ zsh scripts/install-apple-notes-bridge-launchagent.sh
 - 标准输出：`/tmp/multilingual-check-apple-notes-bridge.log`
 - 错误输出：`/tmp/multilingual-check-apple-notes-bridge.err.log`
 
+如果导出到备忘录失败，建议按这个顺序排查：
+
+1. 先确认本地 bridge 是否正在运行
+2. 再确认插件中的 `Apple Notes Bridge URL` 是否为 `http://127.0.0.1:3894/note`
+3. 再确认当前 macOS 账号能正常打开和写入 Apple Notes
+4. 查看日志文件确认错误原因
+
 如果你更想手动维护 `plist`，可以参考仓库中的 `launchd/com.multilingual-check.apple-notes-bridge.plist.example`。
 
-## 共享到 GitHub 前的说明
+## TAPD 配置说明
 
-这个初始版已经处理掉以下不适合直接共享的内容：
+如果你希望把检查结果直接转成 TAPD 需求，可额外填写：
+
+- `TAPD API账号`
+- `TAPD 创建人用户名`
+- `TAPD Token`
+- `TAPD 需求列表链接`
+
+未配置时不会影响插件的页面检查与备忘录导出。
+
+## 共享说明
+
+这个共享版已经去掉了以下不适合直接公开的内容：
 
 - 仓库中的个人绝对路径
 - `launchd` 配置里的本机 Node 路径

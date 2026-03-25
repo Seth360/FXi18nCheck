@@ -32,15 +32,8 @@
         <section id="modelConfigEditor" class="form-section hidden">
           <h2 id="modelEditorTitle">添加模型配置</h2>
           <input id="editConfigId" type="hidden">
-          <label>配置名称<input id="editConfigName" placeholder="例如：我的 GPT-4o"></label>
-          <label>快速填充预设<select id="editPresetSelect"><option value="">-- 手动填写 --</option></select></label>
-          <label>模型名称
-            <div class="input-with-action">
-              <input id="editConfigModel" placeholder="gpt-4o / claude-sonnet-4-0 / ...">
-              <button id="fetchModelsBtn" type="button">Fetch</button>
-            </div>
-          </label>
-          <div id="fetchedModelList" class="fetched-model-list hidden"></div>
+          <label>配置名称<input id="editConfigName" placeholder="例如：我的 OpenAI"></label>
+          <label>模型厂商<select id="editPresetSelect"><option value="">-- 请选择 --</option></select></label>
           <label>API Base URL<input id="editConfigBaseUrl" placeholder="https://api.openai.com"></label>
           <label>API 格式
             <select id="editConfigApiPath">
@@ -50,6 +43,13 @@
             </select>
           </label>
           <label>API Key<input id="editConfigApiKey" type="password" placeholder="sk-..."></label>
+          <label>模型名称
+            <div class="input-with-action">
+              <input id="editConfigModel" placeholder="gpt-4.1 / MiniMax-M2.5 / claude-sonnet-4-0">
+              <button id="fetchModelsBtn" type="button">获取</button>
+            </div>
+          </label>
+          <div id="fetchedModelList" class="fetched-model-list hidden"></div>
           <label>认证 Header<input id="editConfigAuthHeader" placeholder="Authorization"></label>
           <label>认证 Scheme<input id="editConfigAuthScheme" placeholder="Bearer"></label>
           <div class="row" style="margin-top:8px">
