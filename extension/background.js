@@ -417,6 +417,14 @@ function buildModelRequestBody(pageData, settings, apiProtocol) {
     }
     case API_PROTOCOLS.CHAT_COMPLETIONS:
     default:
+      if (isMiniMaxBaseUrl(settings.apiBaseUrl)) {
+        return {
+          model: settings.model,
+          temperature: 0.2,
+          messages: buildChatCompletionsMessages(pageData, settings)
+        };
+      }
+
       return {
         model: settings.model,
         temperature: 0.2,
@@ -1369,6 +1377,11 @@ function normalizeEndpoint(baseUrl, path) {
   }
 
   return `${normalizedBaseUrl}/${normalizedPath.replace(/^\/+/, "")}`;
+}
+
+function isMiniMaxBaseUrl(baseUrl) {
+  return /^https:\/\/api\.minimax\.io(?:\/|$)/i.test(String(baseUrl || "").trim())
+    || /^https:\/\/api\.minimaxi\.com(?:\/|$)/i.test(String(baseUrl || "").trim());
 }
 
 function normalizeComparableUrl(input) {
