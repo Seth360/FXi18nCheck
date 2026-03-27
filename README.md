@@ -1,4 +1,5 @@
 # Fxiaoke 多语质检助手
+![Uploading image.png…]()
 
 用于检查页面国际化多语质量的 Chrome 插件，支持单页检查、连续捕捉汇总、结构化质检报告、历史记录管理，并可将报告导出到 macOS 备忘录与本地 Markdown 归档，还可以一键发布到TAPD创建需求。
 
