@@ -778,7 +778,7 @@ async function handleExportCurrent() {
       throw new Error(response?.error || "导出失败");
     }
     await loadHistory();
-    showToast(response.delivery?.storagePath || "已导出到备忘录");
+    showToast(response.delivery?.message || response.delivery?.storagePath || "已导出到备忘录");
   } catch (error) {
     showToast(error.message || "导出失败");
   } finally {
@@ -965,8 +965,9 @@ function renderDetail() {
       <section class="detail-export-meta">
         ${record.lastExport ? `
           <p>最近导出：${formatDisplayDate(record.lastExport.exportedAt)}</p>
-          <p>备忘录：${escapeHtml(record.lastExport.noteLocation || "未返回位置")}</p>
-          <p>归档：${escapeHtml(record.lastExport.storagePath || "未返回路径")}</p>
+          <p>备忘录：${escapeHtml(record.lastExport.noteLocation || "未写入备忘录")}</p>
+          <p>归档：${escapeHtml(record.lastExport.storagePath || "未生成本地归档")}</p>
+          ${record.lastExport.noteError ? `<p>备忘录结果：${escapeHtml(record.lastExport.noteError)}</p>` : ""}
           ${record.lastExport.screenshotPath ? `<p>截图：${escapeHtml(record.lastExport.screenshotPath)}</p>` : ""}
           ${record.lastExport.stepScreenshotCount ? `<p>步骤截图数：${escapeHtml(String(record.lastExport.stepScreenshotCount))}</p>` : ""}
           ${record.lastExport.screenshotError ? `<p>截图结果：${escapeHtml(record.lastExport.screenshotError)}</p>` : ""}

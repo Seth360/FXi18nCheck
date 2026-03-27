@@ -52,21 +52,35 @@ async function handleNoteRequest(payload) {
   const archiveDir = expandHomeDir(String(payload.archiveDir || "~/Documents/Multilingual-QA-Reports"));
   const screenshots = normalizeScreenshotsPayload(payload);
   const archive = await saveArchiveArtifacts(title, body, archiveDir, screenshots);
+  try {
+    await createAppleNote({
+      title,
+      folder,
+      body,
+      screenshotPaths: archive.screenshotPaths
+    });
 
-  await createAppleNote({
-    title,
-    folder,
-    body,
-    screenshotPaths: archive.screenshotPaths
-  });
-
-  return {
-    message: "已写入备忘录并生成本地归档",
-    noteLocation: `备忘录 / ${folder} / ${title}`,
-    archivePath: archive.markdownPath,
-    screenshotPath: archive.screenshotPaths[0] || "",
-    screenshotPaths: archive.screenshotPaths
-  };
+    return {
+      message: "已写入备忘录并生成本地归档",
+      noteLocation: `备忘录 / ${folder} / ${title}`,
+      archivePath: archive.markdownPath,
+      screenshotPath: archive.screenshotPaths[0] || "",
+      screenshotPaths: archive.screenshotPaths,
+      noteExported: true,
+      noteError: ""
+    };
+  } catch (error) {
+    return {
+      message: "已生成本地归档，但未写入备忘录，请检查 Apple Notes 配置",
+      noteLocation: "",
+      archivePath: archive.markdownPath,
+      screenshotPath: archive.screenshotPaths[0] || "",
+      screenshotPaths: archive.screenshotPaths,
+      noteExported: false,
+      noteError: error.message || "写入 Apple Notes 失败",
+      requiresNotesSetup: true
+    };
+  }
 }
 
 async function saveArchiveArtifacts(title, body, archiveDir, screenshots) {

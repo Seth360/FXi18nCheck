@@ -1578,10 +1578,17 @@ async function exportReportToNotes(reportId) {
         : "正在导出当前详情到备忘录..."
   });
 
-  const delivery = await sendToAppleNotesBridge(markdown, record.page, settings, {
-    screenshot: screenshot?.ok ? screenshot : null,
-    screenshots
-  });
+  let delivery;
+  try {
+    delivery = await sendToAppleNotesBridge(markdown, record.page, settings, {
+      screenshot: screenshot?.ok ? screenshot : null,
+      screenshots
+    });
+  } catch (error) {
+    delivery = await exportReportToLocalMarkdown(markdown, record.page, settings, {
+      noteError: error.message || "未连接到 Apple Notes Bridge，请检查配置"
+    });
+  }
 
   const updated = history.map((item) => {
     if (item.id !== reportId) {
@@ -1602,11 +1609,12 @@ async function exportReportToNotes(reportId) {
   await reportProgress({
     phase: "completed",
     percent: 100,
-    message: delivery.storagePath
-      ? `导出完成，归档路径：${delivery.storagePath}`
-      : "导出完成"
+    message: buildExportCompletionMessage(delivery)
   });
-  await showCompletionNotification("已导出到备忘录", delivery.storagePath || delivery.noteLocation || "导出完成");
+  await showCompletionNotification(
+    delivery.noteExported === false ? "已导出到本地 Markdown" : "已导出到备忘录",
+    delivery.message || delivery.storagePath || delivery.noteLocation || "导出完成"
+  );
 
   return {
     ok: true,
@@ -2072,8 +2080,92 @@ async function sendToAppleNotesBridge(markdown, page, settings, screenshot) {
     noteLocation: payload.noteLocation || "",
     storagePath: payload.archivePath || "",
     screenshotPath: payload.screenshotPath || "",
-    screenshotPaths: Array.isArray(payload.screenshotPaths) ? payload.screenshotPaths : []
+    screenshotPaths: Array.isArray(payload.screenshotPaths) ? payload.screenshotPaths : [],
+    noteExported: payload.noteExported !== false,
+    noteError: payload.noteError || "",
+    requiresNotesSetup: Boolean(payload.requiresNotesSetup)
   };
+}
+
+async function exportReportToLocalMarkdown(markdown, page, settings, options = {}) {
+  const relativePath = buildLocalMarkdownDownloadPath(page, settings);
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  try {
+    const downloadId = await chrome.downloads.download({
+      url,
+      filename: relativePath,
+      saveAs: false,
+      conflictAction: "uniquify"
+    });
+    if (!downloadId && downloadId !== 0) {
+      throw new Error("浏览器未返回下载任务");
+    }
+
+    return {
+      mode: "localMarkdown",
+      message: "已导出到本地 Markdown，但没有导出到备忘录，请检查 Apple Notes 配置",
+      noteLocation: "",
+      storagePath: `下载目录/${relativePath}`,
+      screenshotPath: "",
+      screenshotPaths: [],
+      noteExported: false,
+      noteError: options.noteError || "未连接到 Apple Notes Bridge，请检查配置",
+      requiresNotesSetup: true,
+      downloadId
+    };
+  } catch (error) {
+    throw new Error(`本地 Markdown 导出失败：${error.message || error}`);
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
+function buildLocalMarkdownDownloadPath(page, settings) {
+  const folderName = sanitizeDownloadPathSegment(getLocalArchiveFolderName(settings?.appleNotesArchiveDir));
+  const fileBaseName = sanitizeDownloadFileBaseName(`多语质检 ${page?.title || "未命名页面"}`);
+  return `${folderName}/${fileBaseName}-${formatExportTimestamp(new Date())}.md`;
+}
+
+function getLocalArchiveFolderName(archiveDir) {
+  const normalized = String(archiveDir || "").trim().replace(/[\\/]+$/g, "");
+  const folderName = normalized.split(/[\\/]/).pop();
+  return folderName || "Multilingual-QA-Reports";
+}
+
+function sanitizeDownloadPathSegment(input) {
+  return String(input || "Multilingual-QA-Reports")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+    .replace(/^\.+$/, "_")
+    .slice(0, 80) || "Multilingual-QA-Reports";
+}
+
+function sanitizeDownloadFileBaseName(input) {
+  return String(input || "多语质检报告")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || "多语质检报告";
+}
+
+function formatExportTimestamp(date) {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}${month}${day}-${hours}${minutes}${seconds}`;
+}
+
+function buildExportCompletionMessage(delivery) {
+  if (delivery?.message) {
+    return delivery.message;
+  }
+  if (delivery?.storagePath) {
+    return `导出完成，归档路径：${delivery.storagePath}`;
+  }
+  return "导出完成";
 }
 
 async function resolveActiveModelSettings() {
