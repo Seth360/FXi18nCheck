@@ -2,16 +2,6 @@
 
 用于检查页面国际化多语质量的 Chrome 插件，支持单页检查、连续捕捉汇总、结构化质检报告、历史记录管理，并可将报告导出到 macOS 备忘录与本地 Markdown 归档，还可以一键发布到TAPD创建需求。
 
-## 安装方法
-
-首次安装，建议直接按下面 3 步操作：
-1.下载此项目文件，解压到目录
-2. 在 Chrome 的插件管理（或打开 `chrome://extensions`）界面，开启“开发者模式”，加载未打包的扩展——选择该插件存在本地的目录
-3. 在浏览器打开插件侧边栏，需要先在配置里，选择模型——选择所用模型和你自有API Key 
-4. 针对自动导入到“Mac备忘录的桥接配置（无此需求可忽略）：在仓库根目录执行 `zsh scripts/start-apple-notes-bridge.sh`
-
-完成后就可以打开任意页面，点击插件图标，在右侧边栏里执行“检查当前页面”或“连续捕捉”。
-
 ## 功能介绍
 
 - 采集当前网页或本地 HTML 的标题、按钮、表头、字段标签、占位符等文本
@@ -23,51 +13,21 @@
 - 支持将报告导出到 Apple备忘录（可DIY导出到其它笔记），并同时归档为本地 Markdown 文件
 - 支持一键创建TAPD（需和管理员获取到TAPD API，也可DIY改造自动其它项目wiki）
 
-## 目录结构
-
-```text
-extension/
-  manifest.json
-  background.js
-  content.js
-  icon-16.png
-  icon-32.png
-  icon-48.png
-  icon-128.png
-  sidepanel.html
-  sidepanel.js
-  sidepanel.css
-  popup.html
-  popup.js
-  options.html
-  options.js
-  styles.css
-  prompt-templates.js
-bridges/
-  apple-notes-bridge.js
-scripts/
-  start-apple-notes-bridge.sh
-  install-apple-notes-bridge-launchagent.sh
-launchd/
-  com.multilingual-check.apple-notes-bridge.plist.example
-```
-
 ## 安装方法
 
 ### 1. 安装插件
 
-1. 打开 Chrome 扩展管理页：`chrome://extensions`
-2. 打开右上角“开发者模式”
-3. 点击“加载已解压的扩展程序”
-4. 选择当前仓库根目录，或者直接选择 `extension/` 目录
+1. 下载此项目文件，解压到本地目录。打开 Chrome ”扩展管理”或直接输入`chrome://extensions`
+2. 打开右上角“开发者模式”，点击“加载已解压的扩展程序”
+3. 选择当前仓库根目录，或者直接选择 `extension/` 目录
 5. 如果需要检查本地 HTML，请在扩展详情页打开“允许访问文件网址”
 
 ### 2. 首次配置模型
 
-插件首次安装后会预置一张 FX共享 模型卡片。
+插件首次使用需要配置引用模型和API。
 
-默认配置如下：
-
+为了方便FXer拎包入住，已预置了默认卡片，点击编辑：
+已预置内容：
 - `配置名称`: `FX共享`
 - `模型名称`: `MiniMax-M2.5`
 - `API Base URL`: `https://aihub.firstshare.cn`
@@ -75,11 +35,11 @@ launchd/
 - `认证 Header`: `Authorization`
 - `认证 Scheme`: `Bearer`
 
-需要你或你的同事自行补充：
+需要自行补充：
 
 - `API Key`
 
-如果不使用预设厂商，也可以不选择“模型厂商”，直接手动填写：
+如果不使用预设厂商请选择，或者其它来源，可选任一厂商，直接手动填写修改：
 
 - `API Base URL`
 - `API 格式`
@@ -88,88 +48,28 @@ launchd/
 
 ## 使用说明
 
-1. 打开要检查的网页，或本地 HTML 文件
-2. 点击插件图标，打开弹窗或右侧边栏
-3. 确认模型配置中的 `API Key` 已填写
-4. 根据场景选择：
+1. 打开要检查的网页，或本地 HTML 文件，打开插件侧边栏
+2. 根据场景选择：
    - 点击“检查当前页面”，执行单页检查
-   - 点击“连续捕捉”，回到页面继续点击，结束后生成汇总报告
-5. 等待报告生成后，在首页查看记录卡片
-6. 点击某条记录进入详情页
-7. 根据需要执行：
-   - 忽略单条问题
-   - 复制单条问题
-   - 导出到备忘录
-   - 创建 TAPD 需求
+   - 点击“连续捕捉”，在当前窗口连续点击组件、跳页等操作，再次点击“捕捉中”结束操作，后生成汇总报告
+5. 在报告生成后，自动打开报告卡片，查验问题列表，如不属于质检范围内的问题，可点“忽略”
+6. 点击单个问题卡片，页面中的问题会高亮显示，也可在配置页打开“全部高亮”开关。（高亮功能仅支持单页，“连续捕捉”暂不支持）
+7. 在报告页点击“导出到备忘录”，可将生成的报告自动存到本地MK，也可自动同步到Mac的“备忘录”（在备忘录自动新建的“Fxiaoke 多语质检”目录下），备忘录功能需配置Mac桥接。
+8. 
+## 模型配置说明
+
+“模型厂商”下拉中提供常用厂商预设，FXer可选择内部分发的地址，按照研发内部流程自行申领API
+内部文档：FXer模型调度指南 https://365.kdocs.cn/l/ceGtJnEJnOHv
 
 ## 配置与模板说明
 
-### 配置页
-
-- 侧边栏、弹窗、独立配置页采用统一配置结构
-- 配置卡片默认折叠，可按需展开
-- “将检查的问题在页面高亮显示”开关位于配置标题下方
-- “额外规则”位于配置表单最下方，单独成卡
-
 ### 提示词模板
 
-- 内置模板包括：
+- 在配置页中已内置模板：
   - `通用`
   - `设计体验`
-- 选择模板后，下方提示词会立即切换，不需要额外点击“使用该模板”
-- 支持对当前模板直接“保存”
-- 支持“另存模板”创建自己的模板副本
-- 除 `通用` 外，其它模板都可以删除
-- “恢复初始”会恢复到当前模板的第一版文案，而不是恢复到通用模板
-- 模板区包含两个 Tab：
-  - `单页`
-  - `连续捕捉`
-
-## 模型配置说明
-
-### 厂商预设
-
-“模型厂商”下拉中提供常用厂商预设，包括：
-
-- FX共享
-- MiniMax(国内)
-- MiniMax(国际)
-- OpenAI
-- Anthropic
-- Gemini
-- DeepSeek
-- Qwen
-- Doubao
-
-选择厂商后，会自动带出对应的：
-
-- `API Base URL`
-- `API 格式`
-- `认证 Header`
-- `认证 Scheme`
-- 默认 `模型名称`
-
-### 保存时校验
-
-保存模型配置时会校验：
-
-- `配置名称`
-- `API Base URL`
-- `API Key`
-- `模型名称`
-
-如果填写的是自有 API，可以不选“模型厂商”，直接手动填写以上字段。
-
-### 获取模型列表
-
-点击“获取”按钮时，会尝试根据当前配置读取可用模型列表。
-
-会优先校验：
-
-- `API Base URL`
-- `API Key`
-
-如果是 MiniMax 国内/国际地址，插件会直接返回内置的常用 MiniMax 模型选项，避免请求不存在的 `/v1/models` 接口。
+- “单页”和“连续捕捉”需分别配置提示词
+- 支持“另存模板”创建自己所在业务关联的多语规则模板
 
 ## Mac 备忘录桥接说明
 
@@ -179,9 +79,7 @@ launchd/
 - 已安装 Node.js
 - 当前账号允许使用 Apple Notes
 
-### 方式一：手动启动 bridge
-
-不要在任意目录直接运行 `node bridges/apple-notes-bridge.js`，否则终端当前目录如果不是仓库根目录，就会出现 `Cannot find module .../bridges/apple-notes-bridge.js`。
+### 单次生效：手动启动 bridge
 
 推荐直接运行仓库里提供的启动脚本：
 
@@ -196,9 +94,9 @@ zsh scripts/start-apple-notes-bridge.sh
 - 写入 Apple Notes 指定文件夹
 - 在本地归档目录生成 `.md` 文件
 
-### 方式二：开机自动启动 bridge
+### 永久：开机自动启动 bridge
 
-如果你希望登录 macOS 后自动启动 bridge，可执行：
+在登录 macOS 后自动启动 bridge，可执行：
 
 ```bash
 zsh scripts/install-apple-notes-bridge-launchagent.sh
@@ -211,39 +109,13 @@ zsh scripts/install-apple-notes-bridge-launchagent.sh
 - 生成 `~/Library/LaunchAgents/com.multilingual-check.apple-notes-bridge.plist`
 - 注册并启动对应的 `launchd` 服务
 
-日志位置：
-
-- 标准输出：`/tmp/multilingual-check-apple-notes-bridge.log`
-- 错误输出：`/tmp/multilingual-check-apple-notes-bridge.err.log`
-
-如果导出到备忘录失败，建议按这个顺序排查：
-
-1. 先确认本地 bridge 是否正在运行
-2. 如果终端报 `Cannot find module .../bridges/apple-notes-bridge.js`，说明启动命令是在错误目录执行的，请改用 `zsh scripts/start-apple-notes-bridge.sh`
-3. 再确认插件中的 `Apple Notes Bridge URL` 是否为 `http://127.0.0.1:3894/note`
-4. 再确认当前 macOS 账号能正常打开和写入 Apple Notes
-5. 查看日志文件确认错误原因
-
-如果你更想手动维护 `plist`，可以参考仓库中的 `launchd/com.multilingual-check.apple-notes-bridge.plist.example`。
 
 ## TAPD 配置说明
 
 如果你希望把检查结果直接转成 TAPD 需求，可额外填写：
 
-- `TAPD API账号`
-- `TAPD 创建人用户名`
-- `TAPD Token`
-- `TAPD 需求列表链接`
+- `TAPD API账号` 需向管理员申领
+- `TAPD 创建人用户名` 本人TAPD用户名
+- `TAPD Token` 需向管理员申领
+- `TAPD 需求列表链接` 你创建需求所在的业务列表
 
-未配置时不会影响插件的页面检查与备忘录导出。
-
-## 共享说明
-
-这个共享版已经去掉了以下不适合直接公开的内容：
-
-- 仓库中的个人绝对路径
-- `launchd` 配置里的本机 Node 路径
-- 安装脚本中的本机仓库路径
-- 任意真实 API Key 值
-
-当前保留的 FX共享 配置仅包含团队可共用的基础参数，不包含个人密钥。
