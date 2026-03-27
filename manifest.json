@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fxiaoke 多语质检助手",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "在浏览器右侧边栏中检查多语设计质量，并管理检查历史与备忘录导出。",
   "icons": {
     "16": "extension/icon-16.png",
@@ -14,6 +14,7 @@
     "storage",
     "tabs",
     "scripting",
+    "alarms",
     "notifications",
     "sidePanel"
   ],

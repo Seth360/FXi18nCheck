@@ -1,3 +1,87 @@
+const DEFAULT_PROMPT_SETTINGS = {
+  singlePageSystemPrompt: [
+    "你是资深的 B2B SaaS 多语言设计质量审查专家。",
+    "你的任务是审查当前页面的多语设计质量，而不是代码质量。",
+    "请重点检查：",
+    "1. 中文、英文、数字、时间、货币、缩写的混用是否一致。",
+    "2. 术语、按钮、表头、字段名、状态名、空状态、错误提示是否前后一致。",
+    "3. 是否存在不利于国际化或本地化的文案设计，例如语序写死、语义歧义、拼接文案、过度依赖中文上下文。",
+    "4. 是否存在潜在长度风险，例如英文变长后会截断、按钮过短、表头空间不足。",
+    "5. 是否存在缺失文案、默认占位不清晰、提示语不完整、操作语义不明确的问题。",
+    "6. 只根据输入数据做判断，不要编造页面上不存在的元素。",
+    "6.1 如果 pageData.scope.mode 是 overlay，则只审查当前弹窗、整页弹层或侧滑层，不要把底层列表页或背景页面当成本次检查范围。",
+    "7. 输出必须是 JSON 对象，不要输出 markdown code fence。",
+    "8. JSON 必须严格合法：属性名和字符串值都使用双引号，属性之间不要漏逗号，字符串里的双引号必须转义。"
+  ].join("\n"),
+  singlePageOutputPrompt: [
+    "请严格按以下 JSON 结构输出结果：",
+    "{",
+    '  "pageSummary": "string",',
+    '  "score": 0,',
+    '  "riskLevel": "low | medium | high",',
+    '  "positives": ["做得好的点，最多 3 条"],',
+    '  "findings": [',
+    "    {",
+    '      "severity": "high | medium | low",',
+    '      "category": "术语一致性 | 国际化风险 | 文案清晰度 | 长度/布局风险 | 缺失状态 | 其他",',
+    '      "title": "问题标题",',
+    '      "description": "问题说明",',
+    '      "evidence": ["可见文案或元素线索"],',
+    '      "suggestion": "改进建议",',
+    '      "locator": "用于回查的元素定位线索"',
+    "    }",
+    "  ],",
+    '  "nextActions": ["建议的下一步"]',
+    "}",
+    "要求：",
+    "- 只返回 JSON 对象，不要补充解释。",
+    "- findings 必须是数组。",
+    "- severity 只能是 high、medium、low。",
+    "- riskLevel 只能是 low、medium、high。"
+  ].join("\n"),
+  continuousCaptureSystemPrompt: [
+    "你是资深的 B2B SaaS 多语言设计质量审查专家。",
+    "你的任务是审查用户在连续点击过程中经过的所有页面、弹窗、浮层的多语设计质量，并输出一份汇总报告。",
+    "请重点检查：",
+    "1. 多个步骤之间术语、按钮、表头、字段名、状态名是否一致。",
+    "2. 页面与弹窗/浮层之间是否存在文案冲突、命名不一致、语义断裂。",
+    "3. 是否存在国际化风险，例如语序写死、文案拼接、对中文上下文过度依赖。",
+    "4. 是否存在长度/布局风险，例如英文变长后易截断、按钮过短、表头空间不足。",
+    "5. 是否存在缺失文案、提示语不完整、操作语义不明确的问题。",
+    "6. 同一个问题如果在多个步骤重复出现，请合并为一条 finding，并在 evidence 中写明涉及步骤。",
+    "7. 只根据输入数据做判断，不要编造页面上不存在的元素。",
+    "8. 输出必须是 JSON 对象，不要输出 markdown code fence。",
+    "9. JSON 必须严格合法：属性名和字符串值都使用双引号，属性之间不要漏逗号，字符串里的双引号必须转义。"
+  ].join("\n"),
+  continuousCaptureOutputPrompt: [
+    "请严格按以下 JSON 结构输出结果：",
+    "{",
+    '  "pageSummary": "string，概括整个连续操作流程的多语质量情况",',
+    '  "score": 0,',
+    '  "riskLevel": "low | medium | high",',
+    '  "positives": ["做得好的点，最多 3 条"],',
+    '  "findings": [',
+    "    {",
+    '      "severity": "high | medium | low",',
+    '      "category": "术语一致性 | 国际化风险 | 文案清晰度 | 长度/布局风险 | 缺失状态 | 其他",',
+    '      "title": "问题标题",',
+    '      "description": "问题说明",',
+    '      "evidence": ["可见文案、元素线索，或涉及的步骤号"],',
+    '      "suggestion": "改进建议",',
+    '      "locator": "用于回查的页面、弹窗或元素线索"',
+    "    }",
+    "  ],",
+    '  "nextActions": ["建议的下一步"]',
+    "}",
+    "要求：",
+    "- 只返回 JSON 对象，不要补充解释。",
+    "- 重复问题要尽量合并。",
+    "- findings 必须是数组。",
+    "- severity 只能是 high、medium、low。",
+    "- riskLevel 只能是 low、medium、high。"
+  ].join("\n")
+};
+
 const DEFAULT_SETTINGS = {
   apiBaseUrl: "https://aihub.firstshare.cn",
   apiPath: "/v1/messages",
@@ -15,7 +99,8 @@ const DEFAULT_SETTINGS = {
   modelTimeoutMs: "60000",
   bridgeTimeoutMs: "20000",
   extraRules: "",
-  highlightFindings: true
+  highlightFindings: true,
+  ...DEFAULT_PROMPT_SETTINGS
 };
 
 const DEFAULT_MODEL_CONFIG = {
@@ -34,7 +119,8 @@ const STORAGE_KEYS = {
   progress: "analysisProgress",
   settings: Object.keys(DEFAULT_SETTINGS),
   modelConfigs: "modelConfigs",
-  activeModelConfigId: "activeModelConfigId"
+  activeModelConfigId: "activeModelConfigId",
+  captureSession: "continuousCaptureSession"
 };
 
 const API_PROTOCOLS = {
@@ -44,6 +130,14 @@ const API_PROTOCOLS = {
 };
 
 const CONTENT_SCRIPT_PATH = resolveContentScriptPath();
+const DEFAULT_CONTINUOUS_CAPTURE_LIMITS = {
+  maxClicks: 12,
+  maxDurationMs: 3 * 60 * 1000
+};
+const CONTINUOUS_CAPTURE_ALARM_PREFIX = "continuous-capture:";
+const CAPTURE_ASSET_DB_NAME = "fxMultilingualCaptureAssets";
+const CAPTURE_ASSET_STORE_NAME = "assets";
+let captureClickQueue = Promise.resolve();
 
 if (chrome.sidePanel?.setPanelBehavior) {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -86,18 +180,35 @@ chrome.runtime.onStartup?.addListener(() => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleMessage(message)
+chrome.alarms?.onAlarm.addListener((alarm) => {
+  void handleContinuousCaptureAlarm(alarm);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "complete") {
+    void handleContinuousCaptureTabUpdated(tabId);
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void handleContinuousCaptureTabClosed(tabId);
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  handleMessage(message, sender)
     .then(sendResponse)
     .catch(async (error) => {
       const failureMessage = error.message || "处理失败";
-      if (message?.action === "ANALYZE_CURRENT_PAGE") {
+      if (message?.action === "ANALYZE_CURRENT_PAGE" || message?.action === "STOP_CONTINUOUS_CAPTURE") {
         await reportProgress({
           phase: "error",
           percent: 100,
           message: failureMessage
         });
-        await showCompletionNotification("检查失败", failureMessage);
+        await showCompletionNotification(
+          message?.action === "STOP_CONTINUOUS_CAPTURE" ? "连续捕捉失败" : "检查失败",
+          failureMessage
+        );
       }
       sendResponse({
         ok: false,
@@ -107,15 +218,38 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-async function handleMessage(message) {
+async function handleMessage(message, sender) {
   switch (message?.action) {
     case "ANALYZE_CURRENT_PAGE":
       return analyzeCurrentPage();
+    case "GET_LAST_REPORT":
+      return getLastReport();
     case "GET_ANALYSIS_PROGRESS":
       return {
         ok: true,
         progress: (await chrome.storage.local.get([STORAGE_KEYS.progress]))[STORAGE_KEYS.progress] || null
       };
+    case "GET_CONTINUOUS_CAPTURE_SESSION":
+      return {
+        ok: true,
+        session: buildContinuousCaptureSessionView(await getContinuousCaptureSession())
+      };
+    case "GET_CAPTURE_ASSETS":
+      return {
+        ok: true,
+        assets: await getCaptureAssets(message.keys || [])
+      };
+    case "START_CONTINUOUS_CAPTURE":
+      return startContinuousCapture();
+    case "STOP_CONTINUOUS_CAPTURE":
+      return stopContinuousCapture({ reason: "manual-stop" });
+    case "CANCEL_CONTINUOUS_CAPTURE":
+      return cancelContinuousCapture();
+    case "CAPTURE_TRACKED_CLICK":
+      captureClickQueue = captureClickQueue
+        .catch(() => {})
+        .then(() => handleContinuousCaptureTrackedClick(sender, message));
+      return captureClickQueue;
     case "GET_REPORT_HISTORY":
       return {
         ok: true,
@@ -123,6 +257,7 @@ async function handleMessage(message) {
       };
     case "CLEAR_REPORT_HISTORY":
       await chrome.storage.local.set({ [STORAGE_KEYS.history]: [] });
+      await clearCaptureAssets();
       return { ok: true };
     case "SET_FINDING_IGNORED":
       return setFindingIgnored(message.reportId, message.findingId, message.ignored);
@@ -151,6 +286,10 @@ async function handleMessage(message) {
 }
 
 async function analyzeCurrentPage() {
+  if (await getContinuousCaptureSession()) {
+    throw new Error("连续捕捉进行中，请先停止捕捉后再执行单页检查");
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
     throw new Error("未找到当前标签页");
@@ -159,7 +298,7 @@ async function analyzeCurrentPage() {
   await reportProgress({
     phase: "collecting",
     percent: 10,
-    message: "正在采集当前页面文本和控件信息..."
+    message: "正在读取当前页..."
   });
 
   const pageData = await collectPageData(tab);
@@ -169,7 +308,7 @@ async function analyzeCurrentPage() {
   await reportProgress({
     phase: "analyzing",
     percent: 45,
-    message: `正在调用模型 ${settings.model} 分析多语设计质量...`
+    message: `正在调用${getProgressModelLabel(settings.model)}检查当前页...`
   });
 
   const modelReport = await requestModelReport(pageData, settings);
@@ -189,6 +328,14 @@ async function analyzeCurrentPage() {
     lastExport: null
   };
 
+  const reportScreenshot = await captureAndStoreSinglePageReportScreenshot(record, normalizedReport.findings, tab).catch(() => null);
+  if (reportScreenshot) {
+    record.pageData = {
+      ...record.pageData,
+      reportScreenshot
+    };
+  }
+
   const history = await getReportHistory();
   history.unshift(record);
   await chrome.storage.local.set({
@@ -206,6 +353,14 @@ async function analyzeCurrentPage() {
   return {
     ok: true,
     record
+  };
+}
+
+async function getLastReport() {
+  const history = await getReportHistory();
+  return {
+    ok: true,
+    report: history[0] || null
   };
 }
 
@@ -228,6 +383,569 @@ async function collectPageData(tab) {
   }
 }
 
+async function startContinuousCapture() {
+  if (await getContinuousCaptureSession()) {
+    throw new Error("当前已经在连续捕捉中");
+  }
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    throw new Error("未找到当前标签页");
+  }
+
+  const settings = await resolveActiveModelSettings();
+  validateSettings(settings);
+
+  const initialPageData = await collectPageData(tab);
+  const startedAt = new Date();
+  const session = {
+    id: `capture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    tabId: tab.id,
+    startedAt: startedAt.toISOString(),
+    expiresAt: new Date(startedAt.getTime() + DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxDurationMs).toISOString(),
+    maxClicks: DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxClicks,
+    maxDurationMs: DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxDurationMs,
+    clickCount: 0,
+    steps: []
+  };
+
+  const initialStep = buildContinuousCaptureStep(initialPageData, {
+    type: "start",
+    clickIndex: 0,
+    capturedAt: startedAt.toISOString()
+  });
+  initialStep.screenshot = await captureAndStoreContinuousCaptureStepScreenshot(session.id, initialStep, tab, 1).catch(() => null);
+
+  session.steps = [initialStep];
+  session.lastSignature = initialStep.signature;
+
+  await setContinuousCaptureSession(session);
+  await ensureContinuousCaptureTracking(session);
+  await chrome.alarms?.create(getContinuousCaptureAlarmName(session.id), {
+    when: new Date(session.expiresAt).getTime()
+  });
+  await reportProgress(buildContinuousCaptureProgress(session, "捕捉已开始，请点击页面操作。"));
+
+  return {
+    ok: true,
+    session: buildContinuousCaptureSessionView(session)
+  };
+}
+
+async function stopContinuousCapture(options = {}) {
+  const session = options.session || await getContinuousCaptureSession();
+  if (!session) {
+    throw new Error("当前没有进行中的连续捕捉");
+  }
+
+  await chrome.alarms?.clear(getContinuousCaptureAlarmName(session.id));
+  await stopContinuousCaptureTracking(session.tabId);
+  await clearContinuousCaptureSession();
+
+  return finalizeContinuousCaptureSession(session, options);
+}
+
+async function cancelContinuousCapture() {
+  const session = await getContinuousCaptureSession();
+  if (!session) {
+    throw new Error("当前没有进行中的连续捕捉");
+  }
+
+  await chrome.alarms?.clear(getContinuousCaptureAlarmName(session.id));
+  await stopContinuousCaptureTracking(session.tabId);
+  await clearContinuousCaptureSession();
+  await deleteCaptureAssetsByPrefix(`${session.id}:`);
+  await reportProgress({
+    phase: "idle",
+    percent: 0,
+    message: "已取消连续捕捉"
+  });
+
+  return {
+    ok: true,
+    cancelled: true
+  };
+}
+
+async function finalizeContinuousCaptureSession(session, options = {}) {
+  const settings = await resolveActiveModelSettings();
+  validateSettings(settings);
+
+  const captureData = buildContinuousCaptureFlowData(session, options);
+  await reportProgress({
+    phase: "analyzing",
+    percent: 72,
+    message: "正在整理捕捉内容..."
+  });
+
+  const modelReport = await requestContinuousCaptureReport(captureData, settings);
+  const normalizedReport = normalizeReport(modelReport);
+  const markdown = buildMarkdownReport(normalizedReport, captureData, normalizedReport.findings);
+  const firstStep = captureData.captureFlow.steps[0] || {};
+  const lastStep = captureData.captureFlow.steps[captureData.captureFlow.steps.length - 1] || firstStep;
+  const record = {
+    id: makeRecordId(),
+    type: "continuous-capture",
+    createdAt: new Date().toISOString(),
+    page: {
+      title: `连续捕捉 · ${firstStep.title || lastStep.title || "未命名流程"}`,
+      url: firstStep.url || lastStep.url || ""
+    },
+    pageData: captureData,
+    report: normalizedReport,
+    ignoredFindingIds: [],
+    markdown,
+    lastExport: null
+  };
+
+  const history = await getReportHistory();
+  history.unshift(record);
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.history]: history.slice(0, 100)
+  });
+
+  const stopLabel = describeContinuousCaptureStopReason(options.reason);
+  await reportProgress({
+    phase: "completed",
+    percent: 100,
+    message: `连续捕捉完成，已生成汇总报告（${stopLabel}）`,
+    recordId: record.id
+  });
+  await showCompletionNotification("连续捕捉完成", "汇总报告已生成，可在侧边栏查看详情");
+
+  return {
+    ok: true,
+    record,
+    stopReason: options.reason || "manual-stop"
+  };
+}
+
+async function handleContinuousCaptureTrackedClick(sender, message) {
+  const session = await getContinuousCaptureSession();
+  if (!session?.id || session.id !== message?.sessionId || sender?.tab?.id !== session.tabId) {
+    return { ok: true, ignored: true };
+  }
+
+  if (isContinuousCaptureExpired(session)) {
+    return stopContinuousCapture({ session, reason: "time-limit" });
+  }
+
+  const nextClickCount = Number(session.clickCount || 0) + 1;
+  session.clickCount = nextClickCount;
+  await reportProgress(
+    buildContinuousCaptureProgress(session, "捕捉已开始，请点击页面操作。", {
+      reservePercent: 12
+    })
+  );
+
+  const settledPageData = await collectSettledPageData(session.tabId);
+  const nextStep = buildContinuousCaptureStep(settledPageData, {
+    type: "click",
+    clickIndex: nextClickCount,
+    capturedAt: new Date().toISOString(),
+    interaction: message?.click
+  });
+
+  if (nextStep.signature !== session.lastSignature) {
+    const captureTab = await chrome.tabs.get(session.tabId).catch(() => null);
+    nextStep.screenshot = await captureAndStoreContinuousCaptureStepScreenshot(
+      session.id,
+      nextStep,
+      captureTab,
+      session.steps.length + 1
+    ).catch(() => null);
+    session.steps.push(nextStep);
+    session.lastSignature = nextStep.signature;
+  }
+
+  await setContinuousCaptureSession(session);
+
+  if (nextClickCount >= Number(session.maxClicks || DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxClicks)) {
+    return stopContinuousCapture({ session, reason: "click-limit" });
+  }
+
+  await reportProgress(buildContinuousCaptureProgress(session, "捕捉已开始，请点击页面操作。"));
+  return {
+    ok: true,
+    session: buildContinuousCaptureSessionView(session)
+  };
+}
+
+async function handleContinuousCaptureAlarm(alarm) {
+  if (!alarm?.name || !alarm.name.startsWith(CONTINUOUS_CAPTURE_ALARM_PREFIX)) {
+    return;
+  }
+
+  const session = await getContinuousCaptureSession();
+  if (!session || getContinuousCaptureAlarmName(session.id) !== alarm.name) {
+    return;
+  }
+
+  await stopContinuousCapture({ session, reason: "time-limit" }).catch(() => {});
+}
+
+async function handleContinuousCaptureTabUpdated(tabId) {
+  const session = await getContinuousCaptureSession();
+  if (!session || session.tabId !== tabId) {
+    return;
+  }
+
+  if (isContinuousCaptureExpired(session)) {
+    await stopContinuousCapture({ session, reason: "time-limit" }).catch(() => {});
+    return;
+  }
+
+  await delay(250);
+  await ensureContinuousCaptureTracking(session);
+}
+
+async function handleContinuousCaptureTabClosed(tabId) {
+  const session = await getContinuousCaptureSession();
+  if (!session || session.tabId !== tabId) {
+    return;
+  }
+
+  await stopContinuousCapture({ session, reason: "tab-closed" }).catch(() => {});
+}
+
+async function collectSettledPageData(tabId) {
+  const startedAt = Date.now();
+  let lastError = null;
+
+  await delay(700);
+
+  while (Date.now() - startedAt < 8000) {
+    let tab;
+    try {
+      tab = await chrome.tabs.get(tabId);
+    } catch (error) {
+      lastError = error;
+      break;
+    }
+
+    if (!tab?.id) {
+      throw new Error("未找到连续捕捉标签页");
+    }
+
+    if (tab.status !== "complete") {
+      await delay(350);
+      continue;
+    }
+
+    try {
+      return await collectPageData(tab);
+    } catch (error) {
+      lastError = error;
+      await delay(350);
+    }
+  }
+
+  throw new Error(`连续捕捉后无法读取页面内容：${lastError?.message || lastError || "未知错误"}`);
+}
+
+async function ensureContinuousCaptureTracking(session) {
+  if (!session?.tabId) {
+    return;
+  }
+
+  try {
+    await sendMessageToTab(session.tabId, {
+      action: "START_CONTINUOUS_CAPTURE_TRACKING",
+      session: { id: session.id }
+    });
+  } catch (_error) {
+    // Ignore pages that cannot receive capture tracking.
+  }
+}
+
+async function stopContinuousCaptureTracking(tabId) {
+  if (!tabId) {
+    return;
+  }
+
+  try {
+    await sendMessageToTab(tabId, { action: "STOP_CONTINUOUS_CAPTURE_TRACKING" });
+  } catch (_error) {
+    // Ignore pages that cannot receive capture tracking.
+  }
+}
+
+async function getContinuousCaptureSession() {
+  const storage = await chrome.storage.local.get([STORAGE_KEYS.captureSession]);
+  return storage[STORAGE_KEYS.captureSession] || null;
+}
+
+async function setContinuousCaptureSession(session) {
+  await chrome.storage.local.set({ [STORAGE_KEYS.captureSession]: session });
+  await notifyContinuousCaptureSession(session);
+}
+
+async function clearContinuousCaptureSession() {
+  await chrome.storage.local.remove(STORAGE_KEYS.captureSession);
+  await notifyContinuousCaptureSession(null);
+}
+
+async function notifyContinuousCaptureSession(session) {
+  try {
+    await chrome.runtime.sendMessage({
+      action: "CONTINUOUS_CAPTURE_SESSION_UPDATED",
+      session: buildContinuousCaptureSessionView(session)
+    });
+  } catch (_error) {
+    // Side panel may not be open.
+  }
+}
+
+function buildContinuousCaptureSessionView(session) {
+  if (!session) {
+    return null;
+  }
+
+  return {
+    id: session.id,
+    tabId: session.tabId,
+    startedAt: session.startedAt,
+    expiresAt: session.expiresAt,
+    clickCount: Number(session.clickCount || 0),
+    maxClicks: Number(session.maxClicks || DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxClicks),
+    maxDurationMs: Number(session.maxDurationMs || DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxDurationMs),
+    stepCount: Array.isArray(session.steps) ? session.steps.length : 0
+  };
+}
+
+function buildContinuousCaptureProgress(session, message, options = {}) {
+  const reservePercent = Number(options.reservePercent || 0);
+  const maxPercent = Math.max(1, 68 - reservePercent);
+  const clickCount = Number(session?.clickCount || 0);
+  const maxClicks = Number(session?.maxClicks || DEFAULT_CONTINUOUS_CAPTURE_LIMITS.maxClicks);
+
+  return {
+    phase: "capturing",
+    percent: Math.round((Math.min(clickCount, maxClicks) / maxClicks) * maxPercent),
+    message,
+    clickCount,
+    maxClicks,
+    expiresAt: session?.expiresAt || "",
+    countdownSeconds: Math.max(0, Math.ceil((new Date(session?.expiresAt || 0).getTime() - Date.now()) / 1000))
+  };
+}
+
+function buildContinuousCaptureStep(pageData, meta = {}) {
+  const stepPageData = {
+    title: pageData.title,
+    url: pageData.url,
+    hash: pageData.hash || "",
+    lang: pageData.lang || "",
+    scope: pageData.scope || null,
+    elementCount: Number(pageData.elementCount || 0),
+    textStats: pageData.textStats || {},
+    sample: {
+      headings: sanitizeCaptureTextEntries(pageData.sample?.headings, 10),
+      actions: sanitizeCaptureTextEntries(pageData.sample?.actions, 10),
+      inputs: sanitizeCaptureTextEntries(pageData.sample?.inputs, 10),
+      rawTexts: sanitizeCaptureTextEntries(pageData.sample?.rawTexts, 20)
+    }
+  };
+
+  return {
+    id: `capture-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    type: meta.type || "click",
+    clickIndex: Number(meta.clickIndex || 0),
+    capturedAt: meta.capturedAt || new Date().toISOString(),
+    interaction: sanitizeCaptureInteraction(meta.interaction),
+    signature: buildContinuousCaptureSignature(stepPageData),
+    pageData: stepPageData,
+    screenshot: meta.screenshot || null
+  };
+}
+
+function buildContinuousCaptureSignature(pageData) {
+  return JSON.stringify({
+    url: pageData.url || "",
+    scope: pageData.scope?.label || "",
+    headings: (pageData.sample?.headings || []).slice(0, 4).map((item) => item.text),
+    actions: (pageData.sample?.actions || []).slice(0, 4).map((item) => item.text),
+    inputs: (pageData.sample?.inputs || []).slice(0, 4).map((item) => item.text)
+  });
+}
+
+function sanitizeCaptureTextEntries(entries, limit) {
+  return (Array.isArray(entries) ? entries : []).slice(0, limit).map((item) => ({
+    kind: item.kind || "",
+    text: String(item.text || "").slice(0, 120),
+    locator: item.locator || ""
+  }));
+}
+
+function sanitizeCaptureInteraction(interaction) {
+  if (!interaction) {
+    return null;
+  }
+
+  return {
+    tagName: interaction.tagName || "",
+    text: String(interaction.text || "").slice(0, 80),
+    role: interaction.role || "",
+    locator: interaction.locator || "",
+    capturedAt: interaction.capturedAt || ""
+  };
+}
+
+function buildContinuousCaptureFlowData(session, options = {}) {
+  const steps = (Array.isArray(session.steps) ? session.steps : []).map((step, index) => ({
+    index: index + 1,
+    type: step.type || "click",
+    clickIndex: Number(step.clickIndex || 0),
+    capturedAt: step.capturedAt,
+    title: step.pageData?.title || "",
+    url: step.pageData?.url || "",
+    scope: step.pageData?.scope || null,
+    interaction: step.interaction || null,
+    screenshot: step.screenshot || null,
+    elementCount: Number(step.pageData?.elementCount || 0),
+    textStats: step.pageData?.textStats || {},
+    sample: step.pageData?.sample || {}
+  }));
+
+  return {
+    title: steps[0]?.title || steps[steps.length - 1]?.title || "连续捕捉流程",
+    url: steps[0]?.url || steps[steps.length - 1]?.url || "",
+    lang: steps[0]?.lang || "",
+    scope: {
+      mode: "flow",
+      label: "连续捕捉流程",
+      locator: "continuous-capture"
+    },
+    captureFlow: {
+      clickCount: Number(session.clickCount || 0),
+      stepCount: steps.length,
+      durationMs: Math.max(0, new Date().getTime() - new Date(session.startedAt).getTime()),
+      startedAt: session.startedAt,
+      stopReason: options.reason || "manual-stop",
+      stopReasonLabel: describeContinuousCaptureStopReason(options.reason),
+      steps
+    }
+  };
+}
+
+function isContinuousCaptureExpired(session) {
+  return Date.now() >= new Date(session.expiresAt || 0).getTime();
+}
+
+function describeContinuousCaptureStopReason(reason) {
+  if (reason === "click-limit") return "达到点击上限";
+  if (reason === "time-limit") return "达到时间上限";
+  if (reason === "tab-closed") return "页面已关闭";
+  return "手动停止";
+}
+
+function getContinuousCaptureAlarmName(sessionId) {
+  return `${CONTINUOUS_CAPTURE_ALARM_PREFIX}${sessionId}`;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function openCaptureAssetDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(CAPTURE_ASSET_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(CAPTURE_ASSET_STORE_NAME)) {
+        db.createObjectStore(CAPTURE_ASSET_STORE_NAME, { keyPath: "key" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("无法打开截图存储"));
+  });
+}
+
+async function saveCaptureAsset(key, value) {
+  const db = await openCaptureAssetDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_ASSET_STORE_NAME, "readwrite");
+    tx.objectStore(CAPTURE_ASSET_STORE_NAME).put({ key, ...value });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("保存截图失败"));
+  }).finally(() => db.close());
+}
+
+async function getCaptureAssets(keys) {
+  if (!Array.isArray(keys) || !keys.length) {
+    return {};
+  }
+
+  const db = await openCaptureAssetDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_ASSET_STORE_NAME, "readonly");
+    const store = tx.objectStore(CAPTURE_ASSET_STORE_NAME);
+    const result = {};
+    let remaining = keys.length;
+
+    keys.forEach((key) => {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        if (request.result) {
+          result[key] = request.result;
+        }
+        remaining -= 1;
+        if (remaining === 0) {
+          resolve(result);
+        }
+      };
+      request.onerror = () => {
+        remaining -= 1;
+        if (remaining === 0) {
+          resolve(result);
+        }
+      };
+    });
+
+    tx.onerror = () => reject(tx.error || new Error("读取截图失败"));
+  }).finally(() => db.close());
+}
+
+async function clearCaptureAssets() {
+  const db = await openCaptureAssetDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_ASSET_STORE_NAME, "readwrite");
+    tx.objectStore(CAPTURE_ASSET_STORE_NAME).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("清理截图失败"));
+  }).finally(() => db.close());
+}
+
+async function deleteCaptureAssetsByPrefix(prefix) {
+  if (!prefix) {
+    return;
+  }
+
+  const db = await openCaptureAssetDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_ASSET_STORE_NAME, "readwrite");
+    const store = tx.objectStore(CAPTURE_ASSET_STORE_NAME);
+    const request = store.openCursor();
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve();
+        return;
+      }
+      if (String(cursor.key || "").startsWith(prefix)) {
+        cursor.delete();
+      }
+      cursor.continue();
+    };
+
+    request.onerror = () => reject(request.error || new Error("删除截图失败"));
+    tx.onerror = () => reject(tx.error || new Error("删除截图失败"));
+  }).finally(() => db.close());
+}
+
 function validateSettings(settings) {
   if (!settings.apiBaseUrl || !settings.model) {
     throw new Error("请先在配置里填写 API Base URL 和 Model");
@@ -239,6 +957,14 @@ function validateSettings(settings) {
 }
 
 async function requestModelReport(pageData, settings) {
+  return requestModelJson(buildPromptSpec(pageData, settings), settings);
+}
+
+async function requestContinuousCaptureReport(captureData, settings) {
+  return requestModelJson(buildContinuousCapturePromptSpec(captureData, settings), settings);
+}
+
+async function requestModelJson(promptSpec, settings) {
   const apiProtocol = detectApiProtocol(settings.apiPath);
   const endpoint = normalizeEndpoint(settings.apiBaseUrl, settings.apiPath);
   const headers = {
@@ -257,17 +983,16 @@ async function requestModelReport(pageData, settings) {
   const controller = new AbortController();
   const startAt = Date.now();
   const heartbeat = setInterval(async () => {
-    const elapsedSeconds = Math.floor((Date.now() - startAt) / 1000);
     await reportProgress({
       phase: "analyzing",
       percent: 45,
-      message: `正在调用模型 ${settings.model} 分析多语设计质量... 已等待 ${elapsedSeconds} 秒`
+      message: promptSpec.progressMessage || `正在调用${getProgressModelLabel(settings.model)}生成报告...`
     });
   }, 5000);
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
-  const payload = buildModelRequestBody(pageData, settings, apiProtocol);
+  const payload = buildModelRequestBody(promptSpec, settings, apiProtocol);
   try {
     response = await fetch(endpoint, {
       method: "POST",
@@ -305,70 +1030,73 @@ async function requestModelReport(pageData, settings) {
 }
 
 function buildPromptSpec(pageData, settings) {
-  const system = [
-    "你是资深的 B2B SaaS 多语言设计质量审查专家。",
-    "你的任务是审查当前页面的多语设计质量，而不是代码质量。",
-    "请重点检查：",
-    "1. 中文、英文、数字、时间、货币、缩写的混用是否一致。",
-    "2. 术语、按钮、表头、字段名、状态名、空状态、错误提示是否前后一致。",
-    "3. 是否存在不利于国际化或本地化的文案设计，例如语序写死、语义歧义、拼接文案、过度依赖中文上下文。",
-    "4. 是否存在潜在长度风险，例如英文变长后会截断、按钮过短、表头空间不足。",
-    "5. 是否存在缺失文案、默认占位不清晰、提示语不完整、操作语义不明确的问题。",
-    "6. 只根据输入数据做判断，不要编造页面上不存在的元素。",
-    "6.1 如果 pageData.scope.mode 是 overlay，则只审查当前弹窗、整页弹层或侧滑层，不要把底层列表页或背景页面当成本次检查范围。",
-    "7. 输出必须是 JSON 对象，不要输出 markdown code fence。",
-    "8. JSON 必须严格合法：属性名和字符串值都使用双引号，属性之间不要漏逗号，字符串里的双引号必须转义。"
-  ].join("\n");
+  const system = String(settings.singlePageSystemPrompt || DEFAULT_PROMPT_SETTINGS.singlePageSystemPrompt).trim();
 
   const userPayload = {
     task: "请输出当前页面的多语设计质量报告",
     extraRules: settings.extraRules || "",
-    outputSchema: {
-      pageSummary: "string",
-      score: "0-100 的整数，分数越高问题越少",
-      riskLevel: "low | medium | high",
-      positives: ["做得好的点，最多 3 条"],
-      findings: [
-        {
-          severity: "high | medium | low",
-          category: "术语一致性 | 国际化风险 | 文案清晰度 | 长度/布局风险 | 缺失状态 | 其他",
-          title: "问题标题",
-          description: "问题说明",
-          evidence: ["可见文案或元素线索"],
-          suggestion: "改进建议",
-          locator: "用于回查的元素定位线索"
-        }
-      ],
-      nextActions: ["建议的下一步"]
-    },
+    outputFormatPrompt: String(settings.singlePageOutputPrompt || DEFAULT_PROMPT_SETTINGS.singlePageOutputPrompt).trim(),
     pageData
   };
 
   return {
     system,
-    user: JSON.stringify(userPayload)
+    user: JSON.stringify(userPayload),
+    progressMessage: `正在调用${getProgressModelLabel(settings.model)}检查当前页...`
   };
 }
 
-function buildChatCompletionsMessages(pageData, settings) {
-  const prompt = buildPromptSpec(pageData, settings);
+function buildContinuousCapturePromptSpec(captureData, settings) {
+  const system = String(settings.continuousCaptureSystemPrompt || DEFAULT_PROMPT_SETTINGS.continuousCaptureSystemPrompt).trim();
+
+  const userPayload = {
+    task: "请输出连续捕捉流程的多语设计质量汇总报告",
+    extraRules: settings.extraRules || "",
+    outputFormatPrompt: String(settings.continuousCaptureOutputPrompt || DEFAULT_PROMPT_SETTINGS.continuousCaptureOutputPrompt).trim(),
+    captureData
+  };
+
+  return {
+    system,
+    user: JSON.stringify(userPayload),
+    progressMessage: `正在调用${getProgressModelLabel(settings.model)}生成报告...`
+  };
+}
+
+function getProgressModelLabel(modelName) {
+  const normalized = String(modelName || "").trim();
+  if (!normalized) {
+    return "模型";
+  }
+  if (/minimax/i.test(normalized)) {
+    return "MiniMax";
+  }
+  if (/claude/i.test(normalized)) {
+    return "Claude";
+  }
+  if (/gpt|openai/i.test(normalized)) {
+    return "OpenAI";
+  }
+  return normalized;
+}
+
+function buildChatCompletionsMessages(promptSpec) {
   return [
-    { role: "system", content: prompt.system },
-    { role: "user", content: prompt.user }
+    { role: "system", content: promptSpec.system },
+    { role: "user", content: promptSpec.user }
   ];
 }
 
-function buildResponsesInput(pageData, settings) {
-  const prompt = buildPromptSpec(pageData, settings);
+function buildResponsesInput(promptSpec) {
   return {
-    instructions: prompt.system,
+    instructions: promptSpec.system,
     input: [
       {
         role: "user",
         content: [
           {
             type: "input_text",
-            text: prompt.user
+            text: promptSpec.user
           }
         ]
       }
@@ -376,23 +1104,22 @@ function buildResponsesInput(pageData, settings) {
   };
 }
 
-function buildAnthropicRequest(pageData, settings) {
-  const prompt = buildPromptSpec(pageData, settings);
+function buildAnthropicRequest(promptSpec) {
   return {
-    system: prompt.system,
+    system: promptSpec.system,
     messages: [
       {
         role: "user",
-        content: prompt.user
+        content: promptSpec.user
       }
     ]
   };
 }
 
-function buildModelRequestBody(pageData, settings, apiProtocol) {
+function buildModelRequestBody(promptSpec, settings, apiProtocol) {
   switch (apiProtocol) {
     case API_PROTOCOLS.RESPONSES: {
-      const request = buildResponsesInput(pageData, settings);
+      const request = buildResponsesInput(promptSpec);
       return {
         model: settings.model,
         temperature: 0.2,
@@ -406,7 +1133,7 @@ function buildModelRequestBody(pageData, settings, apiProtocol) {
       };
     }
     case API_PROTOCOLS.ANTHROPIC_MESSAGES: {
-      const request = buildAnthropicRequest(pageData, settings);
+      const request = buildAnthropicRequest(promptSpec);
       return {
         model: settings.model,
         max_tokens: 4096,
@@ -421,7 +1148,7 @@ function buildModelRequestBody(pageData, settings, apiProtocol) {
         return {
           model: settings.model,
           temperature: 0.2,
-          messages: buildChatCompletionsMessages(pageData, settings)
+          messages: buildChatCompletionsMessages(promptSpec)
         };
       }
 
@@ -429,7 +1156,7 @@ function buildModelRequestBody(pageData, settings, apiProtocol) {
         model: settings.model,
         temperature: 0.2,
         response_format: { type: "json_object" },
-        messages: buildChatCompletionsMessages(pageData, settings)
+        messages: buildChatCompletionsMessages(promptSpec)
       };
   }
 }
@@ -696,6 +1423,7 @@ function buildLooseJsonCandidates(input) {
 
 function buildMarkdownReport(report, pageData, findings) {
   const activeFindings = Array.isArray(findings) ? findings : report.findings || [];
+  const captureFlow = pageData.captureFlow || null;
   const lines = [];
   lines.push("# 多语设计质量报告");
   lines.push("");
@@ -703,6 +1431,13 @@ function buildMarkdownReport(report, pageData, findings) {
   lines.push(`- 页面地址：${pageData.url}`);
   if (pageData.scope?.label) {
     lines.push(`- 检查范围：${pageData.scope.label}`);
+  }
+  if (captureFlow) {
+    lines.push(`- 捕捉方式：连续捕捉`);
+    lines.push(`- 点击次数：${captureFlow.clickCount}`);
+    lines.push(`- 记录步骤：${captureFlow.stepCount}`);
+    lines.push(`- 持续时长：${formatDuration(captureFlow.durationMs)}`);
+    lines.push(`- 结束方式：${captureFlow.stopReasonLabel || describeContinuousCaptureStopReason(captureFlow.stopReason)}`);
   }
   lines.push(`- 检查时间：${formatExportDate(new Date().toISOString())}`);
   lines.push(`- 评分：${report.score ?? "未知"}`);
@@ -722,6 +1457,26 @@ function buildMarkdownReport(report, pageData, findings) {
       lines.push(`- ${item}`);
     }
     lines.push("");
+  }
+
+  if (captureFlow?.steps?.length) {
+    lines.push("## 捕捉步骤");
+    captureFlow.steps.forEach((step) => {
+      const stepTitle = step.title || step.url || `步骤 ${step.index}`;
+      lines.push(`### 步骤 ${step.index}. ${stepTitle}`);
+      lines.push(`- 范围：${step.scope?.label || "当前页面"}`);
+      lines.push(`- 地址：${step.url || "未记录 URL"}`);
+      if (step.interaction?.text || step.interaction?.locator) {
+        lines.push(`- 触发点击：${step.interaction.text || step.interaction.locator}`);
+      }
+      if (Array.isArray(step.sample?.headings) && step.sample.headings.length) {
+        lines.push(`- 关键标题：${step.sample.headings.map((item) => item.text).join(" | ")}`);
+      }
+      if (Array.isArray(step.sample?.actions) && step.sample.actions.length) {
+        lines.push(`- 关键操作：${step.sample.actions.map((item) => item.text).join(" | ")}`);
+      }
+      lines.push("");
+    });
   }
 
   lines.push("## 问题列表");
@@ -797,12 +1552,36 @@ async function exportReportToNotes(reportId) {
 
   await reportProgress({
     phase: "exporting",
-    percent: 90,
-    message: "正在导出当前详情到备忘录..."
+    percent: 82,
+    message: "正在准备导出内容..."
   });
 
   const markdown = buildMarkdownReport(record.report, record.pageData, findings);
-  const delivery = await sendToAppleNotesBridge(markdown, record.page, settings);
+  const isContinuousCapture = Boolean(record.pageData?.captureFlow);
+  const screenshots = isContinuousCapture
+    ? await loadContinuousCaptureExportScreenshots(record)
+    : [];
+  const screenshot = isContinuousCapture
+    ? null
+    : await captureReportScreenshot(record, findings).catch((error) => ({
+      ok: false,
+      error: error.message || "截图失败"
+    }));
+
+  await reportProgress({
+    phase: "exporting",
+    percent: 92,
+    message: isContinuousCapture
+      ? `正在导出当前详情和 ${screenshots.length} 张步骤截图到备忘录...`
+      : screenshot?.ok
+        ? "正在导出当前详情和高亮截图到备忘录..."
+        : "正在导出当前详情到备忘录..."
+  });
+
+  const delivery = await sendToAppleNotesBridge(markdown, record.page, settings, {
+    screenshot: screenshot?.ok ? screenshot : null,
+    screenshots
+  });
 
   const updated = history.map((item) => {
     if (item.id !== reportId) {
@@ -812,6 +1591,8 @@ async function exportReportToNotes(reportId) {
       ...item,
       lastExport: {
         exportedAt: new Date().toISOString(),
+        screenshotError: screenshot && !screenshot.ok ? screenshot.error : "",
+        stepScreenshotCount: screenshots.length,
         ...delivery
       }
     };
@@ -936,6 +1717,254 @@ async function syncPageHighlights(pageUrl, findings) {
   };
 }
 
+async function captureReportScreenshot(record, findings) {
+  const pageUrl = record.page?.url || "";
+  const tab = await findMatchingReportTab(pageUrl);
+  if (!tab?.id) {
+    throw new Error("未找到对应页面标签页，无法生成高亮截图");
+  }
+
+  return captureReportScreenshotFromTab(record, findings, tab);
+}
+
+async function captureAndStoreSinglePageReportScreenshot(record, findings, tab) {
+  if (!record?.id || !tab?.id) {
+    return null;
+  }
+
+  const captured = await captureReportScreenshotFromTab(record, findings, tab);
+  if (!captured?.ok || !captured.dataUrl) {
+    return null;
+  }
+
+  const asset = {
+    key: buildReportScreenshotAssetKey(record.id),
+    filename: captured.filename,
+    dataUrl: captured.dataUrl,
+    capturedAt: new Date().toISOString()
+  };
+  await saveCaptureAsset(asset.key, asset);
+  return {
+    key: asset.key,
+    filename: asset.filename,
+    capturedAt: asset.capturedAt
+  };
+}
+
+async function captureReportScreenshotFromTab(record, findings, tab) {
+  if (!tab?.id) {
+    throw new Error("未找到对应页面标签页，无法生成高亮截图");
+  }
+
+  if (tab.windowId !== chrome.windows.WINDOW_ID_NONE) {
+    await chrome.tabs.update(tab.id, { active: true });
+  }
+
+  if (Array.isArray(findings) && findings.length) {
+    await sendMessageToTab(tab.id, {
+      action: "APPLY_FINDING_HIGHLIGHTS",
+      findings
+    });
+  } else {
+    await sendMessageToTab(tab.id, { action: "CLEAR_FINDING_HIGHLIGHTS" }).catch(() => {});
+  }
+
+  try {
+    await delay(260);
+    const dataUrl = await captureFullPageScreenshot(tab);
+    return {
+      ok: true,
+      filename: buildReportScreenshotFileName(record),
+      dataUrl
+    };
+  } finally {
+    await sendMessageToTab(tab.id, { action: "CLEAR_FINDING_HIGHLIGHTS" }).catch(() => {});
+  }
+}
+
+async function captureAndStoreContinuousCaptureStepScreenshot(sessionId, step, tab, stepIndex) {
+  if (!sessionId || !step?.id || !tab?.windowId || tab.windowId === chrome.windows.WINDOW_ID_NONE) {
+    return null;
+  }
+
+  await delay(180);
+  const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+    format: "jpeg",
+    quality: 72
+  });
+  const screenshot = {
+    key: `${sessionId}:${step.id}`,
+    filename: buildContinuousCaptureStepScreenshotFileName(stepIndex, step),
+    dataUrl,
+    capturedAt: step.capturedAt || new Date().toISOString()
+  };
+  await saveCaptureAsset(screenshot.key, screenshot);
+  return {
+    key: screenshot.key,
+    filename: screenshot.filename,
+    capturedAt: screenshot.capturedAt
+  };
+}
+
+async function loadContinuousCaptureExportScreenshots(record) {
+  const stepScreenshots = (record.pageData?.captureFlow?.steps || [])
+    .map((step) => step.screenshot || null)
+    .filter((item) => item?.key);
+
+  if (!stepScreenshots.length) {
+    return [];
+  }
+
+  const assets = await getCaptureAssets(stepScreenshots.map((item) => item.key));
+  return stepScreenshots
+    .map((item) => assets[item.key])
+    .filter((asset) => asset?.dataUrl)
+    .map((asset) => ({
+      filename: asset.filename,
+      dataUrl: asset.dataUrl,
+      capturedAt: asset.capturedAt
+    }));
+}
+
+async function captureFullPageScreenshot(tab) {
+  const captureState = await sendMessageToTab(tab.id, { action: "GET_SCREENSHOT_CAPTURE_STATE" });
+  if (!captureState?.viewportWidth || !captureState?.viewportHeight) {
+    throw new Error("页面未返回可用的截图尺寸");
+  }
+
+  const viewportWidth = Math.max(1, Number(captureState.viewportWidth || 0));
+  const viewportHeight = Math.max(1, Number(captureState.viewportHeight || 0));
+  const fullWidth = Math.max(viewportWidth, Number(captureState.fullWidth || viewportWidth));
+  const fullHeight = Math.max(viewportHeight, Number(captureState.fullHeight || viewportHeight));
+  const originalX = Number(captureState.scrollX || 0);
+  const originalY = Number(captureState.scrollY || 0);
+  const scrollPositions = buildVerticalScrollPositions(fullHeight, viewportHeight);
+  const segments = [];
+
+  try {
+    for (const y of scrollPositions) {
+      await sendMessageToTab(tab.id, {
+        action: "SET_SCREENSHOT_SCROLL",
+        position: { x: 0, y }
+      });
+      await delay(320);
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+      segments.push({ y, dataUrl });
+    }
+  } finally {
+    await sendMessageToTab(tab.id, {
+      action: "SET_SCREENSHOT_SCROLL",
+      position: { x: originalX, y: originalY }
+    }).catch(() => {});
+  }
+
+  return stitchScreenshotSegments({
+    viewportWidth,
+    viewportHeight,
+    fullWidth,
+    fullHeight,
+    segments
+  });
+}
+
+function buildVerticalScrollPositions(fullHeight, viewportHeight) {
+  const positions = [];
+  const maxScrollTop = Math.max(0, fullHeight - viewportHeight);
+
+  for (let y = 0; y <= maxScrollTop; y += viewportHeight) {
+    positions.push(Math.min(y, maxScrollTop));
+  }
+
+  if (positions.length === 0) {
+    positions.push(0);
+  }
+
+  return [...new Set(positions)];
+}
+
+async function stitchScreenshotSegments(payload) {
+  const bitmaps = [];
+  for (const segment of payload.segments) {
+    bitmaps.push({
+      y: segment.y,
+      bitmap: await dataUrlToImageBitmap(segment.dataUrl)
+    });
+  }
+
+  const firstBitmap = bitmaps[0]?.bitmap;
+  if (!firstBitmap) {
+    throw new Error("未采集到截图内容");
+  }
+
+  const scale = firstBitmap.width / payload.viewportWidth;
+  const canvasWidth = Math.round(payload.fullWidth * scale);
+  const canvasHeight = Math.round(payload.fullHeight * scale);
+  const canvas = new OffscreenCanvas(canvasWidth, canvasHeight);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("无法初始化截图画布");
+  }
+
+  for (const item of bitmaps) {
+    const drawY = Math.round(item.y * scale);
+    const remainingHeight = Math.max(0, canvasHeight - drawY);
+    if (remainingHeight <= 0) {
+      continue;
+    }
+
+    const cropHeight = Math.min(item.bitmap.height, remainingHeight);
+    context.drawImage(
+      item.bitmap,
+      0,
+      0,
+      Math.min(item.bitmap.width, canvasWidth),
+      cropHeight,
+      0,
+      drawY,
+      Math.min(item.bitmap.width, canvasWidth),
+      cropHeight
+    );
+  }
+
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  return blobToDataUrl(blob);
+}
+
+async function dataUrlToImageBitmap(dataUrl) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return createImageBitmap(blob);
+}
+
+async function blobToDataUrl(blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return `data:${blob.type || "image/png"};base64,${btoa(binary)}`;
+}
+
+function buildReportScreenshotFileName(record) {
+  const safeTitle = String(record.page?.title || "page")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .slice(0, 80);
+  return `${safeTitle || "page"}-highlights.png`;
+}
+
+function buildReportScreenshotAssetKey(recordId) {
+  return `report:${recordId}`;
+}
+
+function buildContinuousCaptureStepScreenshotFileName(stepIndex, step) {
+  const safeTitle = String(step?.pageData?.title || step?.pageData?.scope?.label || `step-${stepIndex}`)
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .slice(0, 64);
+  return `${String(stepIndex).padStart(2, "0")}-${safeTitle || "step"}.jpg`;
+}
+
 async function clearAllPageHighlights() {
   const tabs = await chrome.tabs.query({});
   await Promise.all(tabs.map(async (tab) => {
@@ -978,7 +2007,9 @@ function resolveContentScriptPath() {
   return contentScriptPath || "content.js";
 }
 
-async function sendToAppleNotesBridge(markdown, page, settings) {
+async function sendToAppleNotesBridge(markdown, page, settings, screenshot) {
+  const screenshotPayload = screenshot?.screenshot || null;
+  const screenshotsPayload = Array.isArray(screenshot?.screenshots) ? screenshot.screenshots : [];
   const timeoutMs = Number(settings.bridgeTimeoutMs || 20000);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -995,7 +2026,15 @@ async function sendToAppleNotesBridge(markdown, page, settings) {
         title: `多语质检 ${page.title}`,
         folder: settings.appleNotesFolder || "多语质检",
         archiveDir: settings.appleNotesArchiveDir || "~/Documents/Multilingual-QA-Reports",
-        body: markdown
+        body: markdown,
+        screenshot: screenshotPayload ? {
+          filename: screenshotPayload.filename,
+          dataUrl: screenshotPayload.dataUrl
+        } : null,
+        screenshots: screenshotsPayload.map((item) => ({
+          filename: item.filename,
+          dataUrl: item.dataUrl
+        }))
       })
     });
   } catch (error) {
@@ -1031,7 +2070,9 @@ async function sendToAppleNotesBridge(markdown, page, settings) {
     mode: "appleNotes",
     message: payload.message || "已写入 Apple 备忘录",
     noteLocation: payload.noteLocation || "",
-    storagePath: payload.archivePath || ""
+    storagePath: payload.archivePath || "",
+    screenshotPath: payload.screenshotPath || "",
+    screenshotPaths: Array.isArray(payload.screenshotPaths) ? payload.screenshotPaths : []
   };
 }
 
@@ -1411,4 +2452,17 @@ function formatExportDate(input) {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${year}/${month}/${day} ${hours}：${minutes}`;
+}
+
+function formatDuration(durationMs) {
+  const totalSeconds = Math.max(0, Math.round(Number(durationMs || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) {
+    return `${seconds} 秒`;
+  }
+  if (seconds === 0) {
+    return `${minutes} 分钟`;
+  }
+  return `${minutes} 分 ${seconds} 秒`;
 }

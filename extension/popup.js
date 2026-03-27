@@ -1,4 +1,9 @@
+const promptTemplateHelpers = window.FXPromptTemplates;
+const promptSettingFields = promptTemplateHelpers?.PROMPT_SETTING_FIELDS || [];
+const promptDefaultValues = promptTemplateHelpers?.getDefaultPromptSettings?.() || {};
+
 const analyzeBtn = document.getElementById("analyzeBtn");
+const continuousCaptureBtn = document.getElementById("continuousCaptureBtn");
 const toggleSettingsBtn = document.getElementById("toggleSettingsBtn");
 const statusEl = document.getElementById("status");
 const resultEl = document.getElementById("result");
@@ -9,6 +14,11 @@ const findingsEl = document.getElementById("findings");
 const settingsPanel = document.getElementById("settingsPanel");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const saveStatusEl = document.getElementById("saveStatus");
+const promptTemplateSelectEl = document.getElementById("promptTemplateSelect");
+const saveCurrentPromptTemplateBtn = document.getElementById("saveCurrentPromptTemplateBtn");
+const savePromptTemplateBtn = document.getElementById("savePromptTemplateBtn");
+const deletePromptTemplateBtn = document.getElementById("deletePromptTemplateBtn");
+const resetPromptTemplateBtn = document.getElementById("resetPromptTemplateBtn");
 const progressPanel = document.getElementById("progressPanel");
 const progressFillEl = document.getElementById("progressFill");
 const progressTextEl = document.getElementById("progressText");
@@ -49,7 +59,8 @@ const defaultFormValues = {
   modelTimeoutMs: "60000",
   bridgeTimeoutMs: "20000",
   extraRules: "",
-  highlightFindings: true
+  highlightFindings: true,
+  ...promptDefaultValues
 };
 
 const settingFields = [
@@ -66,11 +77,16 @@ const settingFields = [
   "modelTimeoutMs",
   "bridgeTimeoutMs",
   "extraRules",
-  "highlightFindings"
+  "highlightFindings",
+  ...promptSettingFields
 ];
 
 let modelConfigs = [];
 let activeModelConfigId = "";
+let captureSession = null;
+let progressTimer = null;
+let promptTemplates = [];
+let selectedPromptTemplateId = promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default";
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.action === "ANALYSIS_PROGRESS") {
@@ -78,6 +94,12 @@ chrome.runtime.onMessage.addListener((message) => {
     if (message.progress?.message) {
       setStatus(message.progress.message);
     }
+    return;
+  }
+
+  if (message?.action === "CONTINUOUS_CAPTURE_SESSION_UPDATED") {
+    captureSession = message.session || null;
+    renderContinuousCaptureButton();
   }
 });
 
@@ -96,11 +118,11 @@ analyzeBtn.addEventListener("click", async () => {
       throw new Error(response?.error || "执行失败");
     }
 
-    renderResult(response.report, response.delivery);
+    renderResult(response.record?.report || response.report, response.record?.lastExport || response.delivery);
     renderProgress({
       percent: 100,
-      message: response.delivery?.storagePath
-        ? `已完成，归档路径：${response.delivery.storagePath}`
+      message: response.record?.lastExport?.storagePath
+        ? `已完成，归档路径：${response.record.lastExport.storagePath}`
         : "已完成"
     });
     setStatus("检查完成");
@@ -112,6 +134,35 @@ analyzeBtn.addEventListener("click", async () => {
     setStatus(error.message || "分析失败");
   } finally {
     analyzeBtn.disabled = false;
+    renderContinuousCaptureButton();
+  }
+});
+
+continuousCaptureBtn.addEventListener("click", async (event) => {
+  if (event.target?.closest?.("[data-capture-action='cancel']") && captureSession) {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: "CANCEL_CONTINUOUS_CAPTURE" });
+      if (!response?.ok) {
+        throw new Error(response?.error || "取消连续捕捉失败");
+      }
+      setStatus("已取消连续捕捉");
+    } catch (error) {
+      setStatus(error.message || "取消连续捕捉失败");
+    }
+    return;
+  }
+
+  const action = captureSession ? "STOP_CONTINUOUS_CAPTURE" : "START_CONTINUOUS_CAPTURE";
+  try {
+    const response = await chrome.runtime.sendMessage({ action });
+    if (!response?.ok) {
+      throw new Error(response?.error || "连续捕捉操作失败");
+    }
+    if (action === "START_CONTINUOUS_CAPTURE") {
+      setStatus("连续捕捉已开始，请回到页面继续点击");
+    }
+  } catch (error) {
+    setStatus(error.message || "连续捕捉操作失败");
   }
 });
 
@@ -123,20 +174,30 @@ toggleSettingsBtn.addEventListener("click", async () => {
 });
 
 saveSettingsBtn.addEventListener("click", saveSettings);
+promptTemplateSelectEl?.addEventListener("change", handlePromptTemplateSelectionChange);
+saveCurrentPromptTemplateBtn.addEventListener("click", handleSaveCurrentPromptTemplate);
+savePromptTemplateBtn.addEventListener("click", handleSavePromptTemplate);
+deletePromptTemplateBtn.addEventListener("click", handleDeletePromptTemplate);
+resetPromptTemplateBtn.addEventListener("click", handleResetPromptTemplate);
 addModelConfigBtn.addEventListener("click", () => openModelEditor(null));
 saveModelConfigBtn.addEventListener("click", handleSaveModelConfig);
 cancelModelConfigBtn.addEventListener("click", closeModelEditor);
 editPresetSelectEl.addEventListener("change", handlePresetSelect);
 fetchModelsBtn.addEventListener("click", handleFetchModels);
 document.addEventListener("click", handleDocumentClick);
+for (const field of promptSettingFields) {
+  document.getElementById(field)?.addEventListener("input", handlePromptFieldInput);
+}
+initPromptTabs();
 
 loadLastReport();
 loadCurrentProgress();
+loadContinuousCaptureSession();
 
 async function loadLastReport() {
   const response = await chrome.runtime.sendMessage({ action: "GET_LAST_REPORT" });
   if (response?.ok && response.report?.report) {
-    renderResult(response.report.report, response.report.delivery);
+    renderResult(response.report.report, response.report.lastExport);
     setStatus("已加载上一次结果");
   }
 }
@@ -148,20 +209,45 @@ async function loadCurrentProgress() {
   }
 }
 
+async function loadContinuousCaptureSession() {
+  const response = await chrome.runtime.sendMessage({ action: "GET_CONTINUOUS_CAPTURE_SESSION" });
+  if (response?.ok) {
+    captureSession = response.session || null;
+    renderContinuousCaptureButton();
+  }
+}
+
 async function loadSettings() {
-  const values = await chrome.storage.local.get(settingFields);
+  const values = await chrome.storage.local.get([
+    ...settingFields,
+    promptTemplateHelpers?.PROMPT_TEMPLATE_STORAGE_KEY || "promptTemplates",
+    promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"
+  ]);
   const resolvedValues = {};
   for (const key of settingFields) {
     resolvedValues[key] = values[key] === undefined ? defaultFormValues[key] : values[key];
   }
+  const normalizedPromptValues = promptTemplateHelpers?.clonePromptSettings?.(resolvedValues) || {};
 
   for (const key of settingFields) {
     const node = document.getElementById(key);
     if (node) {
-      applySettingNodeValue(node, resolvedValues[key]);
+      applySettingNodeValue(node, key in normalizedPromptValues ? normalizedPromptValues[key] : resolvedValues[key]);
     }
   }
 
+  promptTemplates = promptTemplateHelpers?.normalizeStoredPromptTemplates?.(
+    values[promptTemplateHelpers?.PROMPT_TEMPLATE_STORAGE_KEY || "promptTemplates"] || []
+  ) || [];
+  const visibleTemplates = getVisiblePromptTemplates();
+  const preferredTemplateId = values[promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"]
+    || promptTemplateHelpers?.findMatchingTemplateId?.(normalizedPromptValues, promptTemplates)
+    || promptTemplateHelpers?.BUILTIN_TEMPLATE_ID
+    || "builtin-default";
+  selectedPromptTemplateId = visibleTemplates.some((item) => item.id === preferredTemplateId)
+    ? preferredTemplateId
+    : (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  renderPromptTemplateOptions();
   await loadModelConfigs();
   initPresetSelect();
   saveStatusEl.textContent = "已加载配置";
@@ -169,14 +255,180 @@ async function loadSettings() {
 
 async function saveSettings() {
   const payload = {};
+  const normalizedPromptValues = getPromptFieldValues();
   for (const key of settingFields) {
     const node = document.getElementById(key);
-    payload[key] = node ? getSettingNodeValue(node) : "";
+    payload[key] = key in normalizedPromptValues
+      ? normalizedPromptValues[key]
+      : node
+        ? getSettingNodeValue(node)
+        : "";
   }
 
   await chrome.storage.local.set(payload);
+  applyPromptFieldValues(normalizedPromptValues);
+  renderPromptTemplateOptions();
   saveStatusEl.textContent = "保存成功";
   setStatus("配置已保存，可以直接执行检查");
+}
+
+function getPromptFieldValues() {
+  const values = {};
+  for (const key of promptSettingFields) {
+    const node = document.getElementById(key);
+    values[key] = node ? String(getSettingNodeValue(node) || "") : "";
+  }
+  return promptTemplateHelpers?.clonePromptSettings?.(values) || values;
+}
+
+function applyPromptFieldValues(values) {
+  const normalized = promptTemplateHelpers?.clonePromptSettings?.(values) || values;
+  for (const key of promptSettingFields) {
+    const node = document.getElementById(key);
+    if (node) {
+      applySettingNodeValue(node, normalized[key] || "");
+    }
+  }
+}
+
+function renderPromptTemplateOptions() {
+  if (!promptTemplateSelectEl) {
+    return;
+  }
+  const templates = getVisiblePromptTemplates();
+  promptTemplateSelectEl.innerHTML = "";
+
+  for (const template of templates) {
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = template.name;
+    promptTemplateSelectEl.appendChild(option);
+  }
+
+  promptTemplateSelectEl.value = Array.from(promptTemplateSelectEl.options).some((item) => item.value === selectedPromptTemplateId)
+    ? selectedPromptTemplateId
+    : (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  updatePromptTemplateActionState();
+}
+
+async function handlePromptTemplateSelectionChange() {
+  const templateId = promptTemplateSelectEl?.value;
+  const template = findSelectedPromptTemplate(templateId);
+  if (!template) {
+    setStatus("未找到对应模板");
+    return;
+  }
+  selectedPromptTemplateId = template.id;
+  applyPromptFieldValues(template.values);
+  renderPromptTemplateOptions();
+  await persistSelectedPromptTemplateId();
+  saveStatusEl.textContent = `已切换模板：${template.name}`;
+  setStatus(`已切换模板：${template.name}`);
+}
+
+async function handleSaveCurrentPromptTemplate() {
+  const template = findSelectedPromptTemplate();
+  if (!template) {
+    setStatus("请先选择一个模板");
+    return;
+  }
+  const nextValues = getPromptFieldValues();
+  promptTemplates = promptTemplates.map((item) => (
+    item.id === template.id
+      ? {
+          ...item,
+          values: nextValues
+        }
+      : item
+  ));
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  saveStatusEl.textContent = `已保存到模板：${template.name}`;
+  setStatus(`已保存到模板：${template.name}`);
+}
+
+async function handleSavePromptTemplate() {
+  const name = window.prompt("请输入模板名称", "我的提示词模板");
+  if (!name) {
+    return;
+  }
+  const nextTemplate = {
+    id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    name: name.trim() || "未命名模板",
+    builtIn: false,
+    deleted: false,
+    initialValues: getPromptFieldValues(),
+    values: getPromptFieldValues()
+  };
+  promptTemplates = [
+    ...promptTemplates.filter((item) => !item.deleted),
+    promptTemplateHelpers?.createStoredPromptTemplate?.(nextTemplate) || nextTemplate
+  ];
+  selectedPromptTemplateId = nextTemplate.id;
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  if (promptTemplateSelectEl) {
+    promptTemplateSelectEl.value = nextTemplate.id;
+  }
+  saveStatusEl.textContent = `模板已保存：${nextTemplate.name}`;
+  setStatus(`模板已保存：${nextTemplate.name}`);
+}
+
+async function handleDeletePromptTemplate() {
+  const template = findSelectedPromptTemplate();
+  if (!template) {
+    setStatus("请先选择一个模板");
+    return;
+  }
+  if (template.id === (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default")) {
+    setStatus("通用模板不能删除");
+    return;
+  }
+
+  if (template.builtIn) {
+    promptTemplates = promptTemplates.map((item) => (
+      item.id === template.id
+        ? { ...item, deleted: true }
+        : item
+    ));
+  } else {
+    promptTemplates = promptTemplates.filter((item) => item.id !== template.id);
+  }
+
+  const fallbackTemplate = findVisibleTemplateById(promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  selectedPromptTemplateId = fallbackTemplate?.id || (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  if (fallbackTemplate) {
+    applyPromptFieldValues(fallbackTemplate.values);
+  }
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  saveStatusEl.textContent = `已删除模板：${template.name}`;
+  setStatus(`已删除模板：${template.name}`);
+}
+
+async function handleResetPromptTemplate() {
+  const template = findSelectedPromptTemplate();
+  if (!template) {
+    setStatus("请先选择一个模板");
+    return;
+  }
+  const initialValues = promptTemplateHelpers?.clonePromptSettings?.(template.initialValues) || template.initialValues || promptDefaultValues;
+  promptTemplates = promptTemplates.map((item) => (
+    item.id === template.id
+      ? {
+          ...item,
+          values: initialValues
+        }
+      : item
+  ));
+  applyPromptFieldValues(initialValues);
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  if (promptTemplateSelectEl) {
+    promptTemplateSelectEl.value = template.id;
+  }
+  saveStatusEl.textContent = `已恢复模板初始内容：${template.name}`;
+  setStatus(`已恢复模板初始内容：${template.name}`);
 }
 
 async function loadModelConfigs() {
@@ -443,6 +695,9 @@ async function handleDocumentClick(event) {
 }
 
 function renderResult(report, delivery) {
+  if (!report) {
+    return;
+  }
   resultEl.classList.remove("hidden");
   scoreEl.textContent = report.score ?? "-";
   riskLevelEl.textContent = report.riskLevel ?? "-";
@@ -474,9 +729,57 @@ function renderProgress(progress) {
   const percent = Number(progress?.percent || 0);
   progressFillEl.style.width = `${Math.max(0, Math.min(percent, 100))}%`;
   progressTextEl.textContent = progress?.message || "等待执行";
+  updateProgressMeta(progress);
+  resetProgressTimer(progress);
+}
+
+function updateProgressMeta(progress) {
+  if (progress?.phase === "capturing" && Number.isFinite(Number(progress?.maxClicks))) {
+    const clickCount = Math.max(0, Number(progress?.clickCount || 0));
+    const maxClicks = Math.max(0, Number(progress?.maxClicks || 0));
+    const remainingSeconds = getRemainingProgressSeconds(progress);
+    progressMetaEl.textContent = `${clickCount}/${maxClicks}｜${remainingSeconds}s`;
+    return;
+  }
+
   progressMetaEl.textContent = progress?.updatedAt
     ? `最后更新：${new Date(progress.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}`
     : "";
+}
+
+function resetProgressTimer(progress) {
+  clearInterval(progressTimer);
+  progressTimer = null;
+
+  if (progress?.phase !== "capturing" || !progress?.expiresAt) {
+    return;
+  }
+
+  progressTimer = setInterval(() => {
+    updateProgressMeta(progress);
+    if (getRemainingProgressSeconds(progress) <= 0) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+  }, 1000);
+}
+
+function getRemainingProgressSeconds(progress) {
+  if (!progress?.expiresAt) {
+    return Math.max(0, Number(progress?.countdownSeconds || 0));
+  }
+  return Math.max(0, Math.ceil((new Date(progress.expiresAt).getTime() - Date.now()) / 1000));
+}
+
+function renderContinuousCaptureButton() {
+  const isCapturing = Boolean(captureSession);
+  continuousCaptureBtn.classList.toggle("is-capturing", isCapturing);
+  continuousCaptureBtn.querySelector(".capture-cancel-segment")?.classList.toggle("hidden", !isCapturing);
+  const label = continuousCaptureBtn.querySelector(".capture-label");
+  if (label) {
+    label.textContent = isCapturing ? "捕捉中" : "连续捕捉";
+  }
+  analyzeBtn.disabled = isCapturing;
 }
 
 function setStatus(text) {
@@ -496,6 +799,76 @@ function applySettingNodeValue(node, value) {
     return;
   }
   node.value = value ?? "";
+}
+
+function handlePromptFieldInput() {
+  updatePromptTemplateActionState();
+}
+
+function getVisiblePromptTemplates() {
+  return (promptTemplateHelpers?.mergeWithBuiltinTemplates?.(promptTemplates) || []).filter((item) => !item.deleted);
+}
+
+function findVisibleTemplateById(templateId) {
+  return getVisiblePromptTemplates().find((item) => item.id === templateId) || null;
+}
+
+function findSelectedPromptTemplate(templateId = selectedPromptTemplateId) {
+  return promptTemplateHelpers?.findPromptTemplate?.(promptTemplates, templateId) || null;
+}
+
+function updatePromptTemplateActionState() {
+  const selectedTemplate = findSelectedPromptTemplate();
+  if (deletePromptTemplateBtn) {
+    deletePromptTemplateBtn.disabled = !selectedTemplate || selectedTemplate.id === (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  }
+  if (saveCurrentPromptTemplateBtn) {
+    saveCurrentPromptTemplateBtn.disabled = !selectedTemplate;
+  }
+  if (resetPromptTemplateBtn) {
+    resetPromptTemplateBtn.disabled = !selectedTemplate;
+  }
+}
+
+async function persistSelectedPromptTemplateId() {
+  await chrome.storage.local.set({
+    [promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"]: selectedPromptTemplateId
+  });
+}
+
+async function persistPromptTemplates() {
+  promptTemplates = promptTemplateHelpers?.normalizeStoredPromptTemplates?.(promptTemplates) || promptTemplates;
+  await chrome.storage.local.set({
+    [promptTemplateHelpers?.PROMPT_TEMPLATE_STORAGE_KEY || "promptTemplates"]: promptTemplates,
+    [promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"]: selectedPromptTemplateId
+  });
+}
+
+function initPromptTabs() {
+  const tabButtons = Array.from(document.querySelectorAll("[data-prompt-tab-target]"));
+  const tabPanels = Array.from(document.querySelectorAll("[data-prompt-tab-panel]"));
+  if (!tabButtons.length || !tabPanels.length) {
+    return;
+  }
+
+  const activateTab = (target) => {
+    for (const button of tabButtons) {
+      const isActive = button.dataset.promptTabTarget === target;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.tabIndex = isActive ? 0 : -1;
+    }
+
+    for (const panel of tabPanels) {
+      panel.hidden = panel.dataset.promptTabPanel !== target;
+    }
+  };
+
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => activateTab(button.dataset.promptTabTarget || ""));
+  }
+
+  activateTab(tabButtons[0].dataset.promptTabTarget || "");
 }
 
 function escapeHtml(input) {

@@ -8,6 +8,16 @@
   </head>
   <body class="sp-page">
     <div id="toast" class="sp-toast hidden"></div>
+    <div id="imageLightbox" class="sp-image-lightbox hidden" aria-hidden="true">
+      <div class="sp-image-lightbox-backdrop" data-close-image-lightbox="true"></div>
+      <div class="sp-image-lightbox-dialog" role="dialog" aria-modal="true" aria-labelledby="imageLightboxTitle">
+        <button id="imageLightboxCloseBtn" class="sp-image-lightbox-close" type="button" aria-label="关闭预览">关闭</button>
+        <p id="imageLightboxTitle" class="sp-image-lightbox-title"></p>
+        <div class="sp-image-lightbox-frame">
+          <img id="imageLightboxImg" class="sp-image-lightbox-img" alt="">
+        </div>
+      </div>
+    </div>
 
     <main id="homeView" class="sp-screen">
       <section class="sp-shell">
@@ -23,6 +33,13 @@
 
         <div class="sp-actions">
           <button id="analyzeBtn" class="sp-button sp-button-primary">检查当前页面</button>
+          <div id="continuousCaptureBtn" class="sp-button sp-button-secondary sp-capture-button" role="button" tabindex="0">
+            <span class="sp-capture-main">
+              <span class="sp-capture-icon" aria-hidden="true"></span>
+              <span class="sp-capture-label">连续捕捉</span>
+            </span>
+            <span class="sp-capture-cancel-segment hidden" data-capture-action="cancel">取消</span>
+          </div>
           <button id="openSettingsBtn" class="sp-button sp-button-secondary">配置</button>
         </div>
 
@@ -30,8 +47,10 @@
           <div class="sp-progress-bar">
             <div id="progressFill" class="sp-progress-fill"></div>
           </div>
-          <p id="progressText" class="sp-progress-text">等待执行</p>
-          <p id="progressMeta" class="sp-progress-meta"></p>
+          <div class="sp-progress-status-row">
+            <p id="progressText" class="sp-progress-text">等待执行</p>
+            <p id="progressMeta" class="sp-progress-meta"></p>
+          </div>
         </section>
 
         <section class="sp-section">
@@ -67,42 +86,87 @@
             <h2 class="settings-page-title">配置</h2>
             <p class="settings-page-subtitle">填写模型参数和备忘录导出设置</p>
           </div>
+          <label class="page-switch-row">
+            <span class="page-switch-text">将检查的问题在页面高亮显示</span>
+            <span class="switch-control">
+              <input id="highlightFindings" class="switch-input" type="checkbox">
+              <span class="switch-slider" aria-hidden="true"></span>
+            </span>
+          </label>
           <div class="sp-form">
-            <section class="settings-group">
-              <h3 class="settings-group-title">模型配置</h3>
-              <div id="modelConfigList" class="model-config-list"></div>
-              <button id="addModelConfigBtn" class="sp-button sp-button-secondary" type="button" style="margin-top:8px;width:100%">+ 添加模型配置</button>
-            </section>
+            <details class="settings-group settings-collapsible">
+              <summary class="settings-group-summary">
+                <span class="settings-group-title">模型配置</span>
+              </summary>
+              <div class="settings-group-body">
+                <div id="modelConfigList" class="model-config-list"></div>
+                <button id="addModelConfigBtn" class="sp-button sp-button-secondary" type="button" style="margin-top:8px;width:100%">+ 添加模型配置</button>
+                <label>模型超时毫秒<input id="modelTimeoutMs" placeholder="60000"></label>
+              </div>
+            </details>
 
-            <section class="settings-group">
-              <h3 class="settings-group-title">通用设置</h3>
-              <label>模型超时毫秒<input id="modelTimeoutMs" placeholder="60000"></label>
-            </section>
+            <details class="settings-group settings-collapsible">
+              <summary class="settings-group-summary">
+                <span class="settings-group-title">本地笔记配置</span>
+              </summary>
+              <div class="settings-group-body">
+                <label>Apple Notes Bridge URL<input id="appleNotesBridgeUrl" placeholder="http://127.0.0.1:3894/note"></label>
+                <label>Apple Notes 文件夹<input id="appleNotesFolder" placeholder="多语质检"></label>
+                <label>本地归档目录<input id="appleNotesArchiveDir" placeholder="~/Documents/Multilingual-QA-Reports"></label>
+                <label>备忘录桥接超时毫秒<input id="bridgeTimeoutMs" placeholder="20000"></label>
+              </div>
+            </details>
 
-            <section class="settings-group">
-              <h3 class="settings-group-title">本地笔记配置</h3>
-              <label>Apple Notes Bridge URL<input id="appleNotesBridgeUrl" placeholder="http://127.0.0.1:3894/note"></label>
-              <label>Apple Notes 文件夹<input id="appleNotesFolder" placeholder="多语质检"></label>
-              <label>本地归档目录<input id="appleNotesArchiveDir" placeholder="~/Documents/Multilingual-QA-Reports"></label>
-              <label>备忘录桥接超时毫秒<input id="bridgeTimeoutMs" placeholder="20000"></label>
-            </section>
+            <details class="settings-group settings-collapsible">
+              <summary class="settings-group-summary">
+                <span class="settings-group-title">TAPD 配置</span>
+              </summary>
+              <div class="settings-group-body">
+                <label>TAPD API账号<input id="tapdApiAccount" placeholder="例如：your-account"></label>
+                <label>TAPD 创建人用户名<input id="tapdCreatorUsername" placeholder="填写你的 TAPD 登录用户名"></label>
+                <label>TAPD Token<input id="tapdApiToken" type="password" placeholder="Open API Token / Access Token"></label>
+                <label>TAPD 需求列表链接<input id="tapdStoryListUrl" placeholder="输入需求列表地址"></label>
+              </div>
+            </details>
 
-            <section class="settings-group">
-              <h3 class="settings-group-title">TAPD 配置</h3>
-              <label>TAPD API账号<input id="tapdApiAccount" placeholder="例如：your-account"></label>
-              <label>TAPD 创建人用户名<input id="tapdCreatorUsername" placeholder="填写你的 TAPD 登录用户名"></label>
-              <label>TAPD Token<input id="tapdApiToken" type="password" placeholder="Open API Token / Access Token"></label>
-              <label>TAPD 需求列表链接<input id="tapdStoryListUrl" placeholder="输入需求列表地址"></label>
-            </section>
+            <details class="settings-group settings-collapsible">
+              <summary class="settings-group-summary">
+                <span class="settings-group-title">提示词模板</span>
+              </summary>
+              <div class="settings-group-body">
+                <p class="settings-group-help">通用模板可直接使用，也可以修改后另存为自己的模板。</p>
+                <div class="prompt-library-row">
+                  <label class="prompt-library-field">模板库<select id="promptTemplateSelect"></select></label>
+                </div>
+                <div class="prompt-tab-list" role="tablist" aria-label="提示词类型切换">
+                  <button class="prompt-tab is-active" id="sidepanelSinglePromptTab" type="button" role="tab" aria-selected="true" data-prompt-tab-target="single">单页</button>
+                  <button class="prompt-tab" id="sidepanelContinuousPromptTab" type="button" role="tab" aria-selected="false" data-prompt-tab-target="continuous">连续捕捉</button>
+                </div>
+                <div class="prompt-tab-panel" role="tabpanel" aria-labelledby="sidepanelSinglePromptTab" data-prompt-tab-panel="single">
+                  <label>单页检查提示词<textarea id="singlePageSystemPrompt" rows="10"></textarea></label>
+                  <label>单页的输出格式<textarea id="singlePageOutputPrompt" rows="12"></textarea></label>
+                </div>
+                <div class="prompt-tab-panel" role="tabpanel" aria-labelledby="sidepanelContinuousPromptTab" data-prompt-tab-panel="continuous" hidden>
+                  <label>连续捕捉提示词<textarea id="continuousCaptureSystemPrompt" rows="10"></textarea></label>
+                  <label>连续捕捉的输出格式<textarea id="continuousCaptureOutputPrompt" rows="12"></textarea></label>
+                </div>
+                <div class="settings-inline-actions prompt-secondary-actions">
+                  <button id="saveCurrentPromptTemplateBtn" class="sp-button sp-button-secondary" type="button">保存</button>
+                  <button id="savePromptTemplateBtn" class="sp-button sp-button-secondary" type="button">另存模板</button>
+                  <button id="deletePromptTemplateBtn" class="sp-button sp-button-secondary" type="button">删除模板</button>
+                  <button id="resetPromptTemplateBtn" class="sp-button sp-button-secondary" type="button">恢复初始</button>
+                </div>
+              </div>
+            </details>
 
-            <section class="settings-group">
-              <h3 class="settings-group-title">其它</h3>
-              <label class="settings-checkbox">
-                <input id="highlightFindings" type="checkbox">
-                <span>高亮显示问题</span>
-              </label>
-              <label>额外检查规则<textarea id="extraRules" rows="4" placeholder="例如：重点检查按钮命名是否遵循我司术语表"></textarea></label>
-            </section>
+            <details class="settings-group settings-collapsible">
+              <summary class="settings-group-summary">
+                <span class="settings-group-title">额外规则</span>
+              </summary>
+              <div class="settings-group-body">
+                <label>规则内容<textarea id="extraRules" rows="4" placeholder="例如：重点检查按钮命名是否遵循我司术语表"></textarea></label>
+              </div>
+            </details>
           </div>
           <p id="saveStatus" class="settings-status">尚未保存</p>
         </section>
@@ -152,6 +216,7 @@
       </footer>
     </main>
 
+    <script src="prompt-templates.js"></script>
     <script src="model-config.js"></script>
     <script src="sidepanel.js"></script>
   </body>

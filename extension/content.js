@@ -3,12 +3,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse(collectPageData());
     return true;
   }
+  if (message?.action === "START_CONTINUOUS_CAPTURE_TRACKING") {
+    sendResponse(startContinuousCaptureTracking(message.session));
+    return true;
+  }
+  if (message?.action === "STOP_CONTINUOUS_CAPTURE_TRACKING") {
+    stopContinuousCaptureTracking();
+    sendResponse({ ok: true });
+    return true;
+  }
   if (message?.action === "APPLY_FINDING_HIGHLIGHTS") {
     sendResponse(applyFindingHighlights(message.findings));
     return true;
   }
   if (message?.action === "CLEAR_FINDING_HIGHLIGHTS") {
     clearFindingHighlights();
+    sendResponse({ ok: true });
+    return true;
+  }
+  if (message?.action === "GET_SCREENSHOT_CAPTURE_STATE") {
+    sendResponse(getScreenshotCaptureState());
+    return true;
+  }
+  if (message?.action === "SET_SCREENSHOT_SCROLL") {
+    setScreenshotScroll(message.position);
     sendResponse({ ok: true });
     return true;
   }
@@ -21,6 +39,9 @@ const HIGHLIGHT_ATTR = "data-fx-lang-check-highlight";
 const HIGHLIGHT_TEXT_CLASS = "fx-lang-check-highlight-text";
 const HIGHLIGHT_TEXT_ATTR = "data-fx-lang-check-highlight-text";
 let ACTIVE_SCOPE_ROOT = null;
+let CAPTURE_TRACKING_ACTIVE = false;
+let CAPTURE_TRACKING_SESSION_ID = "";
+let captureClickHandler = null;
 
 const ANALYSIS_SCOPE_SELECTOR = [
   "[role='dialog']",
@@ -163,6 +184,87 @@ function collectPageData() {
   };
 }
 
+function startContinuousCaptureTracking(session) {
+  stopContinuousCaptureTracking();
+  CAPTURE_TRACKING_ACTIVE = true;
+  CAPTURE_TRACKING_SESSION_ID = String(session?.id || "");
+  captureClickHandler = (event) => {
+    handleContinuousCaptureClick(event);
+  };
+  document.addEventListener("click", captureClickHandler, true);
+  return {
+    ok: true,
+    sessionId: CAPTURE_TRACKING_SESSION_ID
+  };
+}
+
+function stopContinuousCaptureTracking() {
+  CAPTURE_TRACKING_ACTIVE = false;
+  CAPTURE_TRACKING_SESSION_ID = "";
+  if (captureClickHandler) {
+    document.removeEventListener("click", captureClickHandler, true);
+    captureClickHandler = null;
+  }
+}
+
+function handleContinuousCaptureClick(event) {
+  if (!CAPTURE_TRACKING_ACTIVE || !event.isTrusted) {
+    return;
+  }
+
+  const target = resolveContinuousCaptureTarget(event.target);
+  if (!target || target === document.documentElement || target === document.body) {
+    return;
+  }
+
+  const click = buildContinuousCaptureClickPayload(target);
+  chrome.runtime.sendMessage({
+    action: "CAPTURE_TRACKED_CLICK",
+    sessionId: CAPTURE_TRACKING_SESSION_ID,
+    click
+  }).catch(() => {});
+}
+
+function resolveContinuousCaptureTarget(node) {
+  if (!(node instanceof Element)) {
+    return null;
+  }
+
+  return node.closest([
+    "button",
+    "a",
+    "input",
+    "textarea",
+    "select",
+    "label",
+    "[role='button']",
+    "[role='link']",
+    "[role='tab']",
+    "[role='option']",
+    "[title]",
+    "[aria-label]",
+    "[data-testid]"
+  ].join(", ")) || node;
+}
+
+function buildContinuousCaptureClickPayload(target) {
+  const text = normalizeText(
+    target.getAttribute("aria-label")
+    || target.getAttribute("title")
+    || target.innerText
+    || target.textContent
+    || target.value
+  ).slice(0, 80);
+
+  return {
+    tagName: target.tagName.toLowerCase(),
+    text,
+    role: target.getAttribute("role") || "",
+    locator: buildLocator(target),
+    capturedAt: new Date().toISOString()
+  };
+}
+
 function applyFindingHighlights(findings) {
   ensureHighlightStyle();
   clearFindingHighlights();
@@ -208,6 +310,35 @@ function clearFindingHighlights() {
     node.classList.remove(HIGHLIGHT_CLASS);
     node.removeAttribute(HIGHLIGHT_ATTR);
   });
+}
+
+function getScreenshotCaptureState() {
+  const scrollingElement = document.scrollingElement || document.documentElement || document.body;
+  return {
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    fullWidth: Math.max(
+      scrollingElement?.scrollWidth || 0,
+      document.documentElement?.scrollWidth || 0,
+      document.body?.scrollWidth || 0,
+      window.innerWidth
+    ),
+    fullHeight: Math.max(
+      scrollingElement?.scrollHeight || 0,
+      document.documentElement?.scrollHeight || 0,
+      document.body?.scrollHeight || 0,
+      window.innerHeight
+    ),
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    devicePixelRatio: window.devicePixelRatio || 1
+  };
+}
+
+function setScreenshotScroll(position) {
+  const nextX = Math.max(0, Number(position?.x || 0));
+  const nextY = Math.max(0, Number(position?.y || 0));
+  window.scrollTo(nextX, nextY);
 }
 
 function ensureHighlightStyle() {

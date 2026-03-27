@@ -1,3 +1,7 @@
+const promptTemplateHelpers = window.FXPromptTemplates;
+const promptSettingFields = promptTemplateHelpers?.PROMPT_SETTING_FIELDS || [];
+const promptDefaultValues = promptTemplateHelpers?.getDefaultPromptSettings?.() || {};
+
 const fields = [
   "sinkType",
   "webhookUrl",
@@ -12,11 +16,17 @@ const fields = [
   "modelTimeoutMs",
   "bridgeTimeoutMs",
   "extraRules",
-  "highlightFindings"
+  "highlightFindings",
+  ...promptSettingFields
 ];
 
 const saveBtn = document.getElementById("saveBtn");
 const saveStatus = document.getElementById("saveStatus");
+const promptTemplateSelectEl = document.getElementById("promptTemplateSelect");
+const saveCurrentPromptTemplateBtn = document.getElementById("saveCurrentPromptTemplateBtn");
+const savePromptTemplateBtn = document.getElementById("savePromptTemplateBtn");
+const deletePromptTemplateBtn = document.getElementById("deletePromptTemplateBtn");
+const resetPromptTemplateBtn = document.getElementById("resetPromptTemplateBtn");
 const modelConfigListEl = document.getElementById("modelConfigList");
 const addModelConfigBtn = document.getElementById("addModelConfigBtn");
 const modelConfigEditor = document.getElementById("modelConfigEditor");
@@ -49,35 +59,64 @@ const defaultFormValues = {
   modelTimeoutMs: "60000",
   bridgeTimeoutMs: "20000",
   extraRules: "",
-  highlightFindings: true
+  highlightFindings: true,
+  ...promptDefaultValues
 };
 
 let modelConfigs = [];
 let activeModelConfigId = "";
+let promptTemplates = [];
+let selectedPromptTemplateId = promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default";
 
 loadSettings();
 saveBtn.addEventListener("click", saveSettings);
+promptTemplateSelectEl?.addEventListener("change", handlePromptTemplateSelectionChange);
+saveCurrentPromptTemplateBtn.addEventListener("click", handleSaveCurrentPromptTemplate);
+savePromptTemplateBtn.addEventListener("click", handleSavePromptTemplate);
+deletePromptTemplateBtn.addEventListener("click", handleDeletePromptTemplate);
+resetPromptTemplateBtn.addEventListener("click", handleResetPromptTemplate);
 addModelConfigBtn.addEventListener("click", () => openModelEditor(null));
 saveModelConfigBtn.addEventListener("click", handleSaveModelConfig);
 cancelModelConfigBtn.addEventListener("click", closeModelEditor);
 editPresetSelectEl.addEventListener("change", handlePresetSelect);
 fetchModelsBtn.addEventListener("click", handleFetchModels);
 document.addEventListener("click", handleDocumentClick);
+for (const field of promptSettingFields) {
+  document.getElementById(field)?.addEventListener("input", handlePromptFieldInput);
+}
+initPromptTabs();
 
 async function loadSettings() {
-  const values = await chrome.storage.local.get(fields);
+  const values = await chrome.storage.local.get([
+    ...fields,
+    promptTemplateHelpers?.PROMPT_TEMPLATE_STORAGE_KEY || "promptTemplates",
+    promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"
+  ]);
   const resolvedValues = {};
   for (const key of fields) {
     resolvedValues[key] = values[key] === undefined ? defaultFormValues[key] : values[key];
   }
+  const normalizedPromptValues = promptTemplateHelpers?.clonePromptSettings?.(resolvedValues) || {};
 
   for (const key of fields) {
     const node = document.getElementById(key);
     if (node) {
-      applySettingNodeValue(node, resolvedValues[key]);
+      applySettingNodeValue(node, key in normalizedPromptValues ? normalizedPromptValues[key] : resolvedValues[key]);
     }
   }
 
+  promptTemplates = promptTemplateHelpers?.normalizeStoredPromptTemplates?.(
+    values[promptTemplateHelpers?.PROMPT_TEMPLATE_STORAGE_KEY || "promptTemplates"] || []
+  ) || [];
+  const visibleTemplates = getVisiblePromptTemplates();
+  const preferredTemplateId = values[promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"]
+    || promptTemplateHelpers?.findMatchingTemplateId?.(normalizedPromptValues, promptTemplates)
+    || promptTemplateHelpers?.BUILTIN_TEMPLATE_ID
+    || "builtin-default";
+  selectedPromptTemplateId = visibleTemplates.some((item) => item.id === preferredTemplateId)
+    ? preferredTemplateId
+    : (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  renderPromptTemplateOptions();
   await loadModelConfigs();
   initPresetSelect();
   saveStatus.textContent = "已加载现有配置";
@@ -85,13 +124,175 @@ async function loadSettings() {
 
 async function saveSettings() {
   const payload = {};
+  const normalizedPromptValues = getPromptFieldValues();
   for (const key of fields) {
     const node = document.getElementById(key);
-    payload[key] = node ? getSettingNodeValue(node) : "";
+    payload[key] = key in normalizedPromptValues
+      ? normalizedPromptValues[key]
+      : node
+        ? getSettingNodeValue(node)
+        : "";
   }
 
   await chrome.storage.local.set(payload);
+  applyPromptFieldValues(normalizedPromptValues);
+  renderPromptTemplateOptions();
   saveStatus.textContent = "保存成功";
+}
+
+function getPromptFieldValues() {
+  const values = {};
+  for (const key of promptSettingFields) {
+    const node = document.getElementById(key);
+    values[key] = node ? String(getSettingNodeValue(node) || "") : "";
+  }
+  return promptTemplateHelpers?.clonePromptSettings?.(values) || values;
+}
+
+function applyPromptFieldValues(values) {
+  const normalized = promptTemplateHelpers?.clonePromptSettings?.(values) || values;
+  for (const key of promptSettingFields) {
+    const node = document.getElementById(key);
+    if (node) {
+      applySettingNodeValue(node, normalized[key] || "");
+    }
+  }
+}
+
+function renderPromptTemplateOptions() {
+  if (!promptTemplateSelectEl) {
+    return;
+  }
+  const templates = getVisiblePromptTemplates();
+  promptTemplateSelectEl.innerHTML = "";
+
+  for (const template of templates) {
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = template.name;
+    promptTemplateSelectEl.appendChild(option);
+  }
+
+  promptTemplateSelectEl.value = Array.from(promptTemplateSelectEl.options).some((item) => item.value === selectedPromptTemplateId)
+    ? selectedPromptTemplateId
+    : (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  updatePromptTemplateActionState();
+}
+
+async function handlePromptTemplateSelectionChange() {
+  const templateId = promptTemplateSelectEl?.value;
+  const template = findSelectedPromptTemplate(templateId);
+  if (!template) {
+    saveStatus.textContent = "未找到对应模板";
+    return;
+  }
+  selectedPromptTemplateId = template.id;
+  applyPromptFieldValues(template.values);
+  renderPromptTemplateOptions();
+  await persistSelectedPromptTemplateId();
+  saveStatus.textContent = `已切换模板：${template.name}`;
+}
+
+async function handleSaveCurrentPromptTemplate() {
+  const template = findSelectedPromptTemplate();
+  if (!template) {
+    saveStatus.textContent = "请先选择一个模板";
+    return;
+  }
+  const nextValues = getPromptFieldValues();
+  promptTemplates = promptTemplates.map((item) => (
+    item.id === template.id
+      ? {
+          ...item,
+          values: nextValues
+        }
+      : item
+  ));
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  saveStatus.textContent = `已保存到模板：${template.name}`;
+}
+
+async function handleSavePromptTemplate() {
+  const currentTemplate = findSelectedPromptTemplate();
+  const name = window.prompt("请输入模板名称", "我的提示词模板");
+  if (!name) {
+    return;
+  }
+  const nextTemplate = {
+    id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    name: name.trim() || "未命名模板",
+    builtIn: false,
+    deleted: false,
+    initialValues: getPromptFieldValues(),
+    values: getPromptFieldValues()
+  };
+  promptTemplates = [
+    ...promptTemplates.filter((item) => !item.deleted),
+    promptTemplateHelpers?.createStoredPromptTemplate?.(nextTemplate) || nextTemplate
+  ];
+  selectedPromptTemplateId = nextTemplate.id;
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  if (promptTemplateSelectEl) {
+    promptTemplateSelectEl.value = nextTemplate.id;
+  }
+  saveStatus.textContent = `模板已保存：${nextTemplate.name}`;
+}
+
+async function handleDeletePromptTemplate() {
+  const template = findSelectedPromptTemplate();
+  if (!template) {
+    saveStatus.textContent = "请先选择一个模板";
+    return;
+  }
+  if (template.id === (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default")) {
+    saveStatus.textContent = "通用模板不能删除";
+    return;
+  }
+
+  if (template.builtIn) {
+    promptTemplates = promptTemplates.map((item) => (
+      item.id === template.id
+        ? { ...item, deleted: true }
+        : item
+    ));
+  } else {
+    promptTemplates = promptTemplates.filter((item) => item.id !== template.id);
+  }
+
+  const fallbackTemplate = findVisibleTemplateById(promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  selectedPromptTemplateId = fallbackTemplate?.id || (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  if (fallbackTemplate) {
+    applyPromptFieldValues(fallbackTemplate.values);
+  }
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  saveStatus.textContent = `已删除模板：${template.name}`;
+}
+
+async function handleResetPromptTemplate() {
+  const template = findSelectedPromptTemplate();
+  if (!template) {
+    saveStatus.textContent = "请先选择一个模板";
+    return;
+  }
+  const initialValues = promptTemplateHelpers?.clonePromptSettings?.(template.initialValues) || template.initialValues || promptDefaultValues;
+  promptTemplates = promptTemplates.map((item) => (
+    item.id === template.id
+      ? {
+          ...item,
+          values: initialValues
+        }
+      : item
+  ));
+  applyPromptFieldValues(initialValues);
+  await persistPromptTemplates();
+  renderPromptTemplateOptions();
+  if (promptTemplateSelectEl) {
+    promptTemplateSelectEl.value = template.id;
+  }
+  saveStatus.textContent = `已恢复模板初始内容：${template.name}`;
 }
 
 async function loadModelConfigs() {
@@ -370,6 +571,76 @@ function applySettingNodeValue(node, value) {
     return;
   }
   node.value = value ?? "";
+}
+
+function handlePromptFieldInput() {
+  updatePromptTemplateActionState();
+}
+
+function getVisiblePromptTemplates() {
+  return (promptTemplateHelpers?.mergeWithBuiltinTemplates?.(promptTemplates) || []).filter((item) => !item.deleted);
+}
+
+function findVisibleTemplateById(templateId) {
+  return getVisiblePromptTemplates().find((item) => item.id === templateId) || null;
+}
+
+function findSelectedPromptTemplate(templateId = selectedPromptTemplateId) {
+  return promptTemplateHelpers?.findPromptTemplate?.(promptTemplates, templateId) || null;
+}
+
+function updatePromptTemplateActionState() {
+  const selectedTemplate = findSelectedPromptTemplate();
+  if (deletePromptTemplateBtn) {
+    deletePromptTemplateBtn.disabled = !selectedTemplate || selectedTemplate.id === (promptTemplateHelpers?.BUILTIN_TEMPLATE_ID || "builtin-default");
+  }
+  if (saveCurrentPromptTemplateBtn) {
+    saveCurrentPromptTemplateBtn.disabled = !selectedTemplate;
+  }
+  if (resetPromptTemplateBtn) {
+    resetPromptTemplateBtn.disabled = !selectedTemplate;
+  }
+}
+
+async function persistSelectedPromptTemplateId() {
+  await chrome.storage.local.set({
+    [promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"]: selectedPromptTemplateId
+  });
+}
+
+async function persistPromptTemplates() {
+  promptTemplates = promptTemplateHelpers?.normalizeStoredPromptTemplates?.(promptTemplates) || promptTemplates;
+  await chrome.storage.local.set({
+    [promptTemplateHelpers?.PROMPT_TEMPLATE_STORAGE_KEY || "promptTemplates"]: promptTemplates,
+    [promptTemplateHelpers?.SELECTED_PROMPT_TEMPLATE_STORAGE_KEY || "selectedPromptTemplateId"]: selectedPromptTemplateId
+  });
+}
+
+function initPromptTabs() {
+  const tabButtons = Array.from(document.querySelectorAll("[data-prompt-tab-target]"));
+  const tabPanels = Array.from(document.querySelectorAll("[data-prompt-tab-panel]"));
+  if (!tabButtons.length || !tabPanels.length) {
+    return;
+  }
+
+  const activateTab = (target) => {
+    for (const button of tabButtons) {
+      const isActive = button.dataset.promptTabTarget === target;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.tabIndex = isActive ? 0 : -1;
+    }
+
+    for (const panel of tabPanels) {
+      panel.hidden = panel.dataset.promptTabPanel !== target;
+    }
+  };
+
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => activateTab(button.dataset.promptTabTarget || ""));
+  }
+
+  activateTab(tabButtons[0].dataset.promptTabTarget || "");
 }
 
 function escapeHtml(input) {
