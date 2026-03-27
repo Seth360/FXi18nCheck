@@ -1,5 +1,5 @@
 # Fxiaoke 多语质检助手
-![Uploading image.png…]()
+![Fxiaoke 多语质检助手界面预览](./fm.png)
 
 用于检查页面国际化多语质量的 Chrome 插件，支持单页检查、连续捕捉汇总、结构化质检报告、历史记录管理，并可将报告导出到 macOS 备忘录与本地 Markdown 归档，还可以一键发布到TAPD创建需求。
 
@@ -116,4 +116,3 @@ zsh scripts/install-apple-notes-bridge-launchagent.sh
 - `TAPD 创建人用户名` 本人TAPD用户名
 - `TAPD Token` 需向管理员申领
 - `TAPD 需求列表链接` 你创建需求所在的业务列表
-
