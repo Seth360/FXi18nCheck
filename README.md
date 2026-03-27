@@ -13,6 +13,8 @@
 - 支持内置自定义提示词模板和输出报告格式，已内置“通用”“设计体验”。
 - 支持将报告导出到 Apple备忘录（可DIY导出到其它笔记），并同时归档为本地 Markdown 文件
 - 支持一键创建TAPD（需和管理员获取到TAPD API，也可DIY改造自动其它项目wiki）
+- 
+[![查看演示视频](./cover.png)](https://gmcor0doty.feishu.cn/minutes/obcnoi8mp36hosk4e7rfwnk5)
 
 ## 安装方法
 
