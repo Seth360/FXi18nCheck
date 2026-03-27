@@ -1563,10 +1563,7 @@ async function exportReportToNotes(reportId) {
     : [];
   const screenshot = isContinuousCapture
     ? null
-    : await captureReportScreenshot(record, findings).catch((error) => ({
-      ok: false,
-      error: error.message || "截图失败"
-    }));
+    : await resolveSinglePageExportScreenshot(record, findings);
 
   await reportProgress({
     phase: "exporting",
@@ -1832,6 +1829,43 @@ async function loadContinuousCaptureExportScreenshots(record) {
       dataUrl: asset.dataUrl,
       capturedAt: asset.capturedAt
     }));
+}
+
+async function resolveSinglePageExportScreenshot(record, findings) {
+  const storedScreenshot = await loadStoredReportScreenshot(record).catch(() => null);
+  if (storedScreenshot?.dataUrl) {
+    return {
+      ok: true,
+      filename: storedScreenshot.filename || buildReportScreenshotFileName(record),
+      dataUrl: storedScreenshot.dataUrl,
+      capturedAt: storedScreenshot.capturedAt || "",
+      source: "stored"
+    };
+  }
+
+  return captureReportScreenshot(record, findings).catch((error) => ({
+    ok: false,
+    error: error.message || "截图失败"
+  }));
+}
+
+async function loadStoredReportScreenshot(record) {
+  const configuredKey = record?.pageData?.reportScreenshot?.key || "";
+  const fallbackKey = record?.id ? buildReportScreenshotAssetKey(record.id) : "";
+  const keys = [configuredKey, fallbackKey].filter(Boolean);
+  if (!keys.length) {
+    return null;
+  }
+
+  const assets = await getCaptureAssets([...new Set(keys)]);
+  for (const key of keys) {
+    const asset = assets[key];
+    if (asset?.dataUrl) {
+      return asset;
+    }
+  }
+
+  return null;
 }
 
 async function captureFullPageScreenshot(tab) {
